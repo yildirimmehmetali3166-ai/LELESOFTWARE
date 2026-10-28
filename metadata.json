@@ -1,0 +1,6 @@
+{
+  "name": "Nicea Dedektör - 3D & 2D Yeraltı ve Alan Tarama Sistemi",
+  "description": "Nicea Dedektör 2D & 3D yeraltı anomalisi, boşluk, değerli metal ve zemin tarama yazılımı ile Python ve Android geliştirme mimarisi ve kütüphane çalışma planı.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
