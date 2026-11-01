@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">Nicea Dedektör</string>
+    <string name="tab_3d">3D Görünüm</string>
+    <string name="tab_2d">2D Matris &amp; Kesit</string>
+    <string name="tab_live">Canlı Tarama</string>
+    <string name="tab_plan">Geliştirme Planı</string>
+    <string name="analysis_report">Analiz &amp; Rapor</string>
+    <string name="preset_lahit">Lahit &amp; Mezar Odası</string>
+    <string name="preset_gold">Altın &amp; Sikke Küpü</string>
+    <string name="preset_tunel">Tünel &amp; Mahzen Hattı</string>
+    <string name="depth_cut">Derinlik Kesiti</string>
+    <string name="threshold_filter">Sinyal Eşiği</string>
+    <string name="camera_iso">İzometrik</string>
+    <string name="camera_top">Kuşbakışı</string>
+    <string name="camera_side">Yan Kesit</string>
+    <string name="camera_front">Ön Bakış</string>
+    <string name="view_surface">Yüzey Ağı</string>
+    <string name="view_voxels">3D Voksel</string>
+    <string name="view_wireframe">Tel Çerçeve</string>
+    <string name="view_anomalies">Anomaliler</string>
+</resources>
