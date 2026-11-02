@@ -20,9 +20,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -190,6 +190,27 @@ fun LiveScannerScreen(
         }
     }
 
+    // Real-time 2D Signal Waveform Stream State & Ticker
+    var signalSamples by remember { mutableStateOf(listOf<SignalSample>()) }
+    var isGraphStreaming by remember { mutableStateOf(true) }
+
+    LaunchedEffect(isGraphStreaming, deviceStatus.gradientDelta) {
+        var tick = 0
+        while (isGraphStreaming) {
+            delay(50) // 20 Hz visual update
+            tick++
+            val noise = (kotlin.math.sin(tick * 0.45) * 2.5 + (kotlin.random.Random.nextDouble() - 0.5) * 3.5).toFloat()
+            val currentD = deviceStatus.gradientDelta.toFloat() + noise
+            val sample = SignalSample(
+                timestampMs = System.currentTimeMillis(),
+                sensorA = deviceStatus.currentSensorA.toFloat() + noise * 0.5f,
+                sensorB = deviceStatus.currentSensorB.toFloat() - noise * 0.5f,
+                gradientDelta = currentD
+            )
+            signalSamples = (signalSamples + sample).takeLast(90)
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -281,7 +302,18 @@ fun LiveScannerScreen(
             }
         }
 
-        // Section 2: Live Scanning Walking Matrix
+        // Section 2: Real-time 2D Signal Graph (Canvas API Oscilloscope)
+        RealtimeSignalGraph(
+            samples = signalSamples,
+            currentDelta = signalSamples.lastOrNull()?.gradientDelta ?: deviceStatus.gradientDelta.toFloat(),
+            currentSensorA = deviceStatus.currentSensorA.toFloat(),
+            currentSensorB = deviceStatus.currentSensorB.toFloat(),
+            isStreaming = isGraphStreaming,
+            onToggleStreaming = { isGraphStreaming = !isGraphStreaming },
+            onClearSamples = { signalSamples = emptyList() }
+        )
+
+        // Section 3: Live Scanning Walking Matrix
         Card(
             modifier = Modifier.fillMaxWidth().testTag("live_walking_grid_card"),
             colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
@@ -295,7 +327,7 @@ fun LiveScannerScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.DirectionsWalk, contentDescription = null, tint = Color(0xFFF59E0B))
+                        Icon(Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = null, tint = Color(0xFFF59E0B))
                         Text(
                             text = "Adım Adım Saha Taraması",
                             color = Color.White,

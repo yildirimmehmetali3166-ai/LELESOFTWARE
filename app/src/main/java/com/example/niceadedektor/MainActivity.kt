@@ -2,9 +2,15 @@ package com.example.niceadedektor
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,13 +20,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.ListAlt
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Radar
 import androidx.compose.material.icons.filled.ViewInAr
 import androidx.compose.material3.DropdownMenu
@@ -43,13 +50,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.niceadedektor.model.CameraPreset
-import com.example.niceadedektor.model.DetectedAnomaly
 import com.example.niceadedektor.model.PaletteType
 import com.example.niceadedektor.model.ScanGrid
 import com.example.niceadedektor.model.ViewMode
@@ -57,6 +66,7 @@ import com.example.niceadedektor.ui.components.AnalysisDialog
 import com.example.niceadedektor.ui.components.BottomControlsBar
 import com.example.niceadedektor.ui.components.DevelopmentPlanScreen
 import com.example.niceadedektor.ui.components.LiveScannerScreen
+import com.example.niceadedektor.ui.components.SplashScreen
 import com.example.niceadedektor.ui.components.ThreeDimensionalVisualizer
 import com.example.niceadedektor.ui.components.TwoDimensionalView
 import com.example.niceadedektor.ui.theme.NiceaDedektorTheme
@@ -68,17 +78,37 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             NiceaDedektorTheme {
-                NiceaDedektorApp()
+                MainAppHost()
             }
         }
     }
 }
 
+@Composable
+fun MainAppHost() {
+    var showSplash by remember { mutableStateOf(true) }
+
+    if (showSplash) {
+        SplashScreen(
+            onSplashFinished = { showSplash = false }
+        )
+    } else {
+        NiceaDedektorApp(onShowSplash = { showSplash = true })
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NiceaDedektorApp() {
+fun NiceaDedektorApp(
+    onShowSplash: () -> Unit
+) {
     // Current Active Tab
     var activeTab by remember { mutableStateOf("3d") } // 3d, 2d, live, plan
+
+    // BackHandler: if not on 3d home tab, return to 3d tab
+    BackHandler(enabled = activeTab != "3d") {
+        activeTab = "3d"
+    }
 
     // Active Grid & Anomalies
     var currentGrid by remember { mutableStateOf(ScanGenerators.generateAntikMezarOdasi()) }
@@ -111,24 +141,29 @@ fun NiceaDedektorApp() {
         topBar = {
             TopAppBar(
                 title = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Default.Radar,
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { onShowSplash() }
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_nicea_detector),
                             contentDescription = "Nicea Logo",
-                            tint = Color(0xFFF59E0B),
-                            modifier = Modifier.size(24.dp)
+                            contentScale = ContentScale.Fit,
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(6.dp))
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Text(
                                 "NICEA DEDEKTÖR",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 16.sp,
+                                fontSize = 15.sp,
                                 letterSpacing = 0.5.sp
                             )
                             Text(
-                                "3D & 2D Yeraltı ve Alan Tarama",
+                                "LELE SOFTWARE • 3D Alan Tarama",
                                 color = Color(0xFF94A3B8),
                                 fontSize = 11.sp
                             )
@@ -173,6 +208,13 @@ fun NiceaDedektorApp() {
                                 onClick = {
                                     loadPreset("tunel")
                                     isPresetsMenuOpen = false
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Açılış / Tanıtım Ekranı", color = Color(0xFF38BDF8)) },
+                                onClick = {
+                                    isPresetsMenuOpen = false
+                                    onShowSplash()
                                 }
                             )
                         }
@@ -225,7 +267,7 @@ fun NiceaDedektorApp() {
                 NavigationBarItem(
                     selected = activeTab == "live",
                     onClick = { activeTab = "live" },
-                    icon = { Icon(Icons.Default.DirectionsWalk, contentDescription = null) },
+                    icon = { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = null) },
                     label = { Text("Canlı Tarama", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFFF59E0B),
@@ -239,7 +281,7 @@ fun NiceaDedektorApp() {
                 NavigationBarItem(
                     selected = activeTab == "plan",
                     onClick = { activeTab = "plan" },
-                    icon = { Icon(Icons.Default.ListAlt, contentDescription = null) },
+                    icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
                     label = { Text("Mimari Plan", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFFF59E0B),
