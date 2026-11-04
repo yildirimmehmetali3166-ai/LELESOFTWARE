@@ -13,5 +13,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Nicea Dedektor"
+rootProject.name = "LELE SOFTWARE"
 include(":app")

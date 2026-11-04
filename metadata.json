@@ -1,6 +1,6 @@
 {
-  "name": "Nicea Dedektör - 3D & 2D Yeraltı ve Alan Tarama Sistemi",
-  "description": "Nicea Dedektör 2D & 3D yeraltı anomalisi, boşluk, değerli metal ve zemin tarama yazılımı ile Python ve Android geliştirme mimarisi ve kütüphane çalışma planı.",
+  "name": "LELE SOFTWARE",
+  "description": "LELE SOFTWARE Yazılım Mühendislik 3D ve 2D üst düzey yeraltı görüntüleme, manyetik anomali ve jeofizik alan tarama yazılımı.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
