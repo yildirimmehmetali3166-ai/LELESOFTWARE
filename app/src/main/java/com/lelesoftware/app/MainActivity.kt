@@ -71,8 +71,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
+import com.lelesoftware.app.data.local.AnomalyRepository
 import com.lelesoftware.app.model.CameraPreset
 import com.lelesoftware.app.model.PaletteType
 import com.lelesoftware.app.model.ScanGrid
@@ -82,11 +90,14 @@ import com.lelesoftware.app.ui.components.BottomControlsBar
 import com.lelesoftware.app.ui.components.DevelopmentPlanScreen
 import com.lelesoftware.app.ui.components.LiveScannerScreen
 import com.lelesoftware.app.ui.components.LoginScreen
+import com.lelesoftware.app.ui.components.SavedAnomaliesDialog
+import com.lelesoftware.app.ui.components.SoilDensityDepthChart
 import com.lelesoftware.app.ui.components.SplashScreen
 import com.lelesoftware.app.ui.components.ThreeDimensionalVisualizer
 import com.lelesoftware.app.ui.components.TwoDimensionalView
 import com.lelesoftware.app.ui.theme.LeleSoftwareTheme
 import com.lelesoftware.app.util.ScanGenerators
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -159,10 +170,17 @@ fun LeleSoftwareApp(
     var selectedAnomalyId by remember { mutableStateOf<String?>(null) }
     var isControlsCollapsed by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val repository = remember { AnomalyRepository.getInstance(context) }
+    val savedAnomalies by repository.allAnomalies.collectAsState(initial = emptyList())
+
     // Modals & Menus
     var isAnalysisOpen by remember { mutableStateOf(false) }
     var isPresetsMenuOpen by remember { mutableStateOf(false) }
     var isCompassOpen by remember { mutableStateOf(false) }
+    var isD3ChartOpen by remember { mutableStateOf(false) }
+    var isSavedAnomaliesOpen by remember { mutableStateOf(false) }
 
     fun loadPreset(key: String) {
         selectedAnomalyId = null
@@ -229,6 +247,50 @@ fun LeleSoftwareApp(
                     titleContentColor = Color.White
                 ),
                 actions = {
+                    // D3 Real-Time Soil Density & Anomaly Depth Chart Toggle Button
+                    IconButton(
+                        onClick = { isD3ChartOpen = !isD3ChartOpen },
+                        modifier = Modifier.testTag("d3_chart_button")
+                    ) {
+                        Icon(
+                            Icons.Default.Timeline,
+                            contentDescription = "D3 Toprak Yoğunluğu & Derinlik Grafiği",
+                            tint = if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xFF94A3B8)
+                        )
+                    }
+
+                    // Local SQLite Room Database Offline Storage Button
+                    IconButton(
+                        onClick = { isSavedAnomaliesOpen = true },
+                        modifier = Modifier.testTag("sqlite_storage_button")
+                    ) {
+                        Box {
+                            Icon(
+                                Icons.Default.Storage,
+                                contentDescription = "Kayıtlı Anomaliler (SQLite Room)",
+                                tint = Color(0xFF10B981)
+                            )
+                            if (savedAnomalies.isNotEmpty()) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(0xFFF59E0B),
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .align(Alignment.TopEnd)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = "${savedAnomalies.size.coerceAtMost(99)}",
+                                            color = Color.Black,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Earth Magnetic Survey Compass Button
                     IconButton(
                         onClick = { isCompassOpen = true },
@@ -421,6 +483,62 @@ fun LeleSoftwareApp(
                             cameraPreset = cameraPreset
                         )
 
+                        // D3 Chart Component Floating on Main 3D Dashboard
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(12.dp),
+                            horizontalAlignment = Alignment.End
+                        ) {
+                            Surface(
+                                modifier = Modifier
+                                    .clickable { isD3ChartOpen = !isD3ChartOpen }
+                                    .testTag("toggle_d3_chart_button"),
+                                shape = RoundedCornerShape(20.dp),
+                                color = if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xCC0F172A),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xFF334155))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Timeline,
+                                        contentDescription = null,
+                                        tint = if (isD3ChartOpen) Color.Black else Color(0xFF00E5FF),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Text(
+                                        text = if (isD3ChartOpen) "D3 Grafiği Gizle" else "D3 Toprak Yoğunluğu & Derinlik",
+                                        color = if (isD3ChartOpen) Color.Black else Color.White,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                            }
+
+                            if (isD3ChartOpen) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(modifier = Modifier.widthIn(max = 380.dp)) {
+                                    SoilDensityDepthChart(
+                                        anomalies = anomalies,
+                                        currentDepth = (selectedAnomalyId?.let { id -> anomalies.find { it.id == id }?.depthMeters } ?: 3.2f),
+                                        currentDensity = 1.95f,
+                                        onSaveToDatabase = { anomaly ->
+                                            coroutineScope.launch {
+                                                repository.saveAnomaly(
+                                                    anomaly = anomaly,
+                                                    scanId = currentGrid.id,
+                                                    locationName = currentGrid.locationName
+                                                )
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+
                         // Bottom Docked Controls
                         BottomControlsBar(
                             palette = palette,
@@ -469,12 +587,38 @@ fun LeleSoftwareApp(
         }
     }
 
-    // Detailed Report & Export Modal
+    // Detailed Report & Export Modal with Room Database Save
     AnalysisDialog(
         isOpen = isAnalysisOpen,
         onClose = { isAnalysisOpen = false },
         grid = currentGrid,
-        anomalies = anomalies
+        anomalies = anomalies,
+        onSaveAllToDatabase = {
+            coroutineScope.launch {
+                repository.saveAllAnomalies(
+                    anomalies = anomalies,
+                    scanId = currentGrid.id,
+                    locationName = currentGrid.locationName
+                )
+            }
+        }
+    )
+
+    // SQLite Room Database Offline Anomalies Modal
+    SavedAnomaliesDialog(
+        isOpen = isSavedAnomaliesOpen,
+        onClose = { isSavedAnomaliesOpen = false },
+        savedAnomalies = savedAnomalies,
+        onSelectAnomaly = { entity ->
+            selectedAnomalyId = entity.id
+            activeTab = "3d"
+        },
+        onDeleteAnomaly = { id ->
+            coroutineScope.launch { repository.deleteAnomaly(id) }
+        },
+        onClearAll = {
+            coroutineScope.launch { repository.clearAll() }
+        }
     )
 
     // Earth Magnetic Survey Compass Modal

@@ -27,6 +27,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lelesoftware.app.model.DetectedAnomaly
+import androidx.compose.material.icons.filled.Storage
 import com.lelesoftware.app.model.ScanGrid
 import com.lelesoftware.app.model.TargetClassification
 import com.lelesoftware.app.util.ReportExporter
@@ -47,7 +52,8 @@ fun AnalysisDialog(
     isOpen: Boolean,
     onClose: () -> Unit,
     grid: ScanGrid,
-    anomalies: List<DetectedAnomaly>
+    anomalies: List<DetectedAnomaly>,
+    onSaveAllToDatabase: (() -> Unit)? = null
 ) {
     if (!isOpen) return
     val context = LocalContext.current
@@ -181,6 +187,29 @@ fun AnalysisDialog(
                                 fontSize = 10.sp
                             )
                         }
+                    }
+                }
+
+                // Save to SQLite Room Database
+                if (onSaveAllToDatabase != null) {
+                    var isSaved by remember { mutableStateOf(false) }
+                    Button(
+                        onClick = {
+                            onSaveAllToDatabase()
+                            isSaved = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isSaved) Color(0xFF10B981) else Color(0xFF00E5FF)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.Storage, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isSaved) "Tüm Hedefler SQLite Veritabanına Kaydedildi" else "Tüm Anomalileri SQLite Veritabanına Kaydet",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
                     }
                 }
 
