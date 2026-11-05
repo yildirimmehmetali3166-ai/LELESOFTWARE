@@ -4,19 +4,22 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
 /**
  * Main Room SQLite Database for LELE SOFTWARE.
- * Stores geophysical surveys, detected anomalies, soil density calibrations, and depth data for offline review.
+ * Stores geophysical surveys, compressed scan matrices, and detected anomalies for offline review.
  */
 @Database(
-    entities = [AnomalyEntity::class],
-    version = 1,
+    entities = [AnomalyEntity::class, ScanEntity::class],
+    version = 2,
     exportSchema = false
 )
+@TypeConverters(ScanTypeConverters::class)
 abstract class LeleDatabase : RoomDatabase() {
 
     abstract fun anomalyDao(): AnomalyDao
+    abstract fun scanDao(): ScanDao
 
     companion object {
         @Volatile

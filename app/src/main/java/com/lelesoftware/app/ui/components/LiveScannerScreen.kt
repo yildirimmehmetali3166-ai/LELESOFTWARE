@@ -26,7 +26,6 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -38,13 +37,8 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,167 +49,29 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.lelesoftware.app.model.DeviceStatus
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lelesoftware.app.model.PaletteType
 import com.lelesoftware.app.model.ScanGrid
-import com.lelesoftware.app.model.ScanPoint
-import com.lelesoftware.app.model.TargetClassification
-import com.lelesoftware.app.util.AudioSynthesizer
 import com.lelesoftware.app.util.ColorScales
-import com.lelesoftware.app.util.ScanGenerators
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import java.util.Locale
-import kotlin.math.abs
-import kotlin.math.exp
-import kotlin.math.pow
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
+/**
+ * LiveScannerScreen
+ *
+ * Thread Yönetimi & Sensör Akışı:
+ * ScanSimulationViewModel aracılığıyla BLE 50 Hz sensör akışı, ΔnT manyetik gradyan
+ * ve matris işleme adımlarını Main Thread yerine Dispatchers.Default üzerinde çalıştırır.
+ */
 @Composable
 fun LiveScannerScreen(
     onScanCompleted: (ScanGrid) -> Unit,
+    viewModel: ScanSimulationViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
-    val gridWidth = 10
-    val gridHeight = 10
-    val stepDistance = 0.5f
+    val uiState by viewModel.uiState.collectAsState()
 
-    var walkPattern by remember { mutableStateOf("zigzag") } // zigzag or parallel
-    var isScanning by remember { mutableStateOf(false) }
-    var currentStepX by remember { mutableIntStateOf(0) }
-    var currentStepY by remember { mutableIntStateOf(0) }
-    var points by remember { mutableStateOf(ScanGenerators.generateEmptyLiveGrid(gridWidth, gridHeight, stepDistance).points) }
-    var groundBalance by remember { mutableIntStateOf(48100) }
-    var isCalibrating by remember { mutableStateOf(false) }
-    var deviceStatus by remember { mutableStateOf(DeviceStatus()) }
-
-    // Seed hidden subterranean targets for the live simulation
-    val hiddenTargets = remember {
-        val map = mutableMapOf<String, Float>()
-        val cx = (gridWidth * 0.6f).toInt()
-        val cy = (gridHeight * 0.6f).toInt()
-        val vx = (gridWidth * 0.3f).toInt()
-        val vy = (gridHeight * 0.4f).toInt()
-
-        for (y in 0 until gridHeight) {
-            for (x in 0 until gridWidth) {
-                val dMetal = sqrt((x - cx).toFloat().pow(2) + (y - cy).toFloat().pow(2))
-                val dVoid = sqrt((x - vx).toFloat().pow(2) + (y - vy).toFloat().pow(2))
-                var s = ((x * 7 + y * 13) % 7 - 3f)
-                if (dMetal < 2.0f) {
-                    s += 92f * exp(-dMetal * 1.6f)
-                } else if (dVoid < 2.5f) {
-                    s -= 82f * exp(-dVoid * 1.2f)
-                }
-                map["$x,$y"] = s.coerceIn(-100f, 100f)
-            }
-        }
-        map
-    }
-
-    fun takeSingleStep() {
-        if (currentStepY >= gridHeight) return
-
-        val x = currentStepX
-        val y = currentStepY
-        val targetSignal = hiddenTargets["$x,$y"] ?: 0f
-
-        val updatedPoints = points.mapIndexed { py, row ->
-            row.mapIndexed { px, p ->
-                if (px == x && py == y) {
-                    val raw = (targetSignal * 12.0f + groundBalance).roundToInt()
-                    val absSig = abs(targetSignal)
-                    val estimatedDepth = if (absSig > 20f) {
-                        (1.25f * (100f / absSig).pow(0.35f)).coerceIn(0.4f, 5.0f)
-                    } else 0f
-                    p.copy(
-                        rawSignal = raw,
-                        filteredSignal = targetSignal,
-                        depth = estimatedDepth,
-                        classification = ScanGenerators.classifySignal(targetSignal),
-                        confidence = 90,
-                        timestamp = System.currentTimeMillis()
-                    )
-                } else p
-            }
-        }
-        points = updatedPoints
-
-        // Audio feedback on step
-        AudioSynthesizer.playSignalTone(targetSignal)
-
-        // Update probe telemetry
-        deviceStatus = deviceStatus.copy(
-            currentSensorA = (groundBalance + targetSignal * 6.5f).roundToInt(),
-            currentSensorB = (groundBalance - targetSignal * 5.5f).roundToInt(),
-            gradientDelta = (targetSignal * 12.0f).roundToInt(),
-            currentPitch = 1.0f + (x % 3 - 1) * 0.5f,
-            currentRoll = -0.2f + (y % 3 - 1) * 0.4f
-        )
-
-        // Advance to next coordinate based on pattern
-        if (walkPattern == "zigzag") {
-            if (y % 2 == 0) {
-                // Moving right
-                if (x + 1 < gridWidth) {
-                    currentStepX = x + 1
-                } else {
-                    currentStepY = y + 1
-                }
-            } else {
-                // Moving left
-                if (x - 1 >= 0) {
-                    currentStepX = x - 1
-                } else {
-                    currentStepY = y + 1
-                }
-            }
-        } else {
-            // Parallel: always 0 to width-1
-            if (x + 1 < gridWidth) {
-                currentStepX = x + 1
-            } else {
-                currentStepX = 0
-                currentStepY = y + 1
-            }
-        }
-
-        if (currentStepY >= gridHeight) {
-            isScanning = false
-        }
-    }
-
-    // Auto walking coroutine
-    LaunchedEffect(isScanning, currentStepX, currentStepY) {
-        if (isScanning && currentStepY < gridHeight) {
-            delay(400)
-            takeSingleStep()
-        }
-    }
-
-    // Real-time 2D Signal Waveform Stream State & Ticker
-    var signalSamples by remember { mutableStateOf(listOf<SignalSample>()) }
-    var isGraphStreaming by remember { mutableStateOf(true) }
-
-    LaunchedEffect(isGraphStreaming, deviceStatus.gradientDelta) {
-        var tick = 0
-        while (isGraphStreaming) {
-            delay(50) // 20 Hz visual update
-            tick++
-            val noise = (kotlin.math.sin(tick * 0.45) * 2.5 + (kotlin.random.Random.nextDouble() - 0.5) * 3.5).toFloat()
-            val currentD = deviceStatus.gradientDelta.toFloat() + noise
-            val sample = SignalSample(
-                timestampMs = System.currentTimeMillis(),
-                sensorA = deviceStatus.currentSensorA.toFloat() + noise * 0.5f,
-                sensorB = deviceStatus.currentSensorB.toFloat() - noise * 0.5f,
-                gradientDelta = currentD
-            )
-            signalSamples = (signalSamples + sample).takeLast(90)
-        }
-    }
-
-    var scanViewMode by remember { mutableStateOf("radar") } // "radar" or "grid"
+    val gridWidth = uiState.gridWidth
+    val gridHeight = uiState.gridHeight
+    val deviceStatus = uiState.deviceStatus
 
     Column(
         modifier = modifier
@@ -242,7 +98,7 @@ fun LiveScannerScreen(
                         Icon(Icons.Default.Bluetooth, contentDescription = null, tint = Color(0xFF38BDF8))
                         Column {
                             Text(deviceStatus.deviceName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("Bağlı (BLE 5.2 - 50Hz Örnekleme)", color = Color(0xFF10B981), fontSize = 12.sp)
+                            Text("Bağlı (BLE 50 Hz - Dispatchers.Default)", color = Color(0xFF10B981), fontSize = 12.sp)
                         }
                     }
 
@@ -316,7 +172,11 @@ fun LiveScannerScreen(
             rawDeltaNt = deviceStatus.gradientDelta.toFloat(),
             currentPitch = deviceStatus.currentPitch,
             currentRoll = deviceStatus.currentRoll,
-            currentYaw = 45f + (currentStepX * 4f)
+            currentYaw = (45f + (uiState.currentStepX * 4f)),
+            onFilterParametersChanged = { zThresh, imuEnabled, _ ->
+                viewModel.setZThreshold(zThresh)
+                viewModel.setImuEnabled(imuEnabled)
+            }
         )
 
         // Section 2: Earth Magnetic Axis Survey Compass
@@ -324,19 +184,19 @@ fun LiveScannerScreen(
 
         // Section 3: Animated Radar Pulse Effect - In the Center of Active Scanning
         AnimatedRadarPulse(
-            isScanning = isScanning,
+            isScanning = uiState.isScanning,
             gradientDelta = deviceStatus.gradientDelta.toFloat()
         )
 
         // Section 4: Real-time 2D Signal Graph (Canvas API Oscilloscope)
         RealtimeSignalGraph(
-            samples = signalSamples,
-            currentDelta = signalSamples.lastOrNull()?.gradientDelta ?: deviceStatus.gradientDelta.toFloat(),
+            samples = uiState.signalSamples,
+            currentDelta = uiState.signalSamples.lastOrNull()?.gradientDelta ?: deviceStatus.gradientDelta.toFloat(),
             currentSensorA = deviceStatus.currentSensorA.toFloat(),
             currentSensorB = deviceStatus.currentSensorB.toFloat(),
-            isStreaming = isGraphStreaming,
-            onToggleStreaming = { isGraphStreaming = !isGraphStreaming },
-            onClearSamples = { signalSamples = emptyList() }
+            isStreaming = uiState.isGraphStreaming,
+            onToggleStreaming = { viewModel.toggleGraphStreaming() },
+            onClearSamples = { viewModel.clearSamples() }
         )
 
         // Section 5: Live Scanning Walking Matrix
@@ -364,13 +224,13 @@ fun LiveScannerScreen(
 
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         FilterChip(
-                            selected = walkPattern == "zigzag",
-                            onClick = { walkPattern = "zigzag" },
+                            selected = uiState.walkPattern == "zigzag",
+                            onClick = { viewModel.setWalkPattern("zigzag") },
                             label = { Text("Zikzak", fontSize = 12.sp) }
                         )
                         FilterChip(
-                            selected = walkPattern == "parallel",
-                            onClick = { walkPattern = "parallel" },
+                            selected = uiState.walkPattern == "parallel",
+                            onClick = { viewModel.setWalkPattern("parallel") },
                             label = { Text("Paralel", fontSize = 12.sp) }
                         )
                     }
@@ -380,7 +240,7 @@ fun LiveScannerScreen(
 
                 // Progress Bar
                 val totalSteps = gridWidth * gridHeight
-                val currentStepIndex = (currentStepY * gridWidth + currentStepX).coerceAtMost(totalSteps)
+                val currentStepIndex = (uiState.currentStepY * gridWidth + uiState.currentStepX).coerceAtMost(totalSteps)
                 val progress = currentStepIndex.toFloat() / totalSteps.toFloat()
                 LinearProgressIndicator(
                     progress = { progress },
@@ -395,7 +255,7 @@ fun LiveScannerScreen(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text("Adım: $currentStepIndex / $totalSteps", color = Color(0xFF94A3B8), fontSize = 12.sp)
-                    Text("Konum: (${currentStepX}, ${currentStepY.coerceAtMost(gridHeight - 1)})", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Konum: (${uiState.currentStepX}, ${uiState.currentStepY.coerceAtMost(gridHeight - 1)})", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(12.dp))
@@ -404,7 +264,7 @@ fun LiveScannerScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .aspectRatio(1f)
+                        .aspectRatio(gridWidth.toFloat() / gridHeight.toFloat().coerceAtLeast(1f))
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF030712))
                         .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
@@ -416,10 +276,11 @@ fun LiveScannerScreen(
                         val cellH = renderH / gridHeight
 
                         for (y in 0 until gridHeight) {
+                            val row = uiState.points.getOrNull(y) ?: continue
                             for (x in 0 until gridWidth) {
-                                val pt = points[y][x]
+                                val pt = row.getOrNull(x) ?: continue
                                 val isVisited = pt.timestamp > 0
-                                val isCurrent = (x == currentStepX && y == currentStepY && isScanning)
+                                val isCurrent = (x == uiState.currentStepX && y == uiState.currentStepY && uiState.isScanning)
 
                                 val cellColor = if (isVisited) {
                                     ColorScales.getPaletteColor(pt.filteredSignal, PaletteType.LELE_SPECTRUM)
@@ -453,57 +314,40 @@ fun LiveScannerScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { isScanning = !isScanning },
+                        onClick = { viewModel.toggleScanning() },
                         modifier = Modifier.weight(1f).testTag("toggle_scan_button"),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isScanning) Color(0xFFEF4444) else Color(0xFF10B981)
+                            containerColor = if (uiState.isScanning) Color(0xFFEF4444) else Color(0xFF10B981)
                         )
                     ) {
-                        Icon(if (isScanning) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null)
+                        Icon(if (uiState.isScanning) Icons.Default.Pause else Icons.Default.PlayArrow, contentDescription = null)
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text(if (isScanning) "Durdur" else "Taramayı Başlat")
+                        Text(if (uiState.isScanning) "Durdur" else "Taramayı Başlat")
                     }
 
                     OutlinedButton(
-                        onClick = { takeSingleStep() },
-                        enabled = !isScanning && currentStepY < gridHeight
+                        onClick = { viewModel.takeSingleStep() },
+                        enabled = !uiState.isScanning && uiState.currentStepY < gridHeight
                     ) {
                         Text("Tek Adım")
                     }
 
                     OutlinedButton(
-                        onClick = {
-                            isScanning = false
-                            currentStepX = 0
-                            currentStepY = 0
-                            points = ScanGenerators.generateEmptyLiveGrid(gridWidth, gridHeight, stepDistance).points
-                        }
+                        onClick = { viewModel.resetScan() }
                     ) {
                         Icon(Icons.Default.Refresh, contentDescription = "Sıfırla")
                     }
                 }
 
                 // If scan completed, show Complete & Transfer button
-                if (currentStepY >= gridHeight) {
+                if (uiState.currentStepY >= gridHeight) {
                     Spacer(modifier = Modifier.height(10.dp))
                     Button(
                         onClick = {
-                            val completedGrid = ScanGrid(
-                                id = "scan-live-${System.currentTimeMillis()}",
-                                title = "Canlı Saha Taraması (Tamamlandı)",
-                                date = "2026-11-01 13:00",
-                                width = gridWidth,
-                                height = gridHeight,
-                                stepDistanceMeters = stepDistance,
-                                points = points,
-                                groundBalance = groundBalance,
-                                sensorType = "Gradiometer 2-Sensör",
-                                locationName = "Canlı Ölçüm Sahası",
-                                notes = "10x10 adım canlı sensör probu ile kaydedildi."
-                            )
+                            val completedGrid = viewModel.buildCompletedGrid()
                             onScanCompleted(completedGrid)
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag("complete_live_scan_button"),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
                     ) {
                         Icon(Icons.Default.CheckCircle, contentDescription = null)

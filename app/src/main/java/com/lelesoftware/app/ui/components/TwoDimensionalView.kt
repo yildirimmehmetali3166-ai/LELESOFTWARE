@@ -60,6 +60,7 @@ import com.lelesoftware.app.model.PaletteType
 import com.lelesoftware.app.model.ScanGrid
 import com.lelesoftware.app.model.ScanPoint
 import com.lelesoftware.app.model.SoilType
+import com.lelesoftware.app.model.TargetClassification
 import com.lelesoftware.app.util.AudioSynthesizer
 import com.lelesoftware.app.util.ColorScales
 import com.lelesoftware.app.util.SignalDepthCalculator
@@ -89,13 +90,17 @@ fun TwoDimensionalView(
         )
     }
 
-    val selectedPoint: ScanPoint = grid.points[selectedCell.second][selectedCell.first]
+    val safeY = selectedCell.second.coerceIn(0, (grid.points.size - 1).coerceAtLeast(0))
+    val row = grid.points.getOrNull(safeY) ?: emptyList()
+    val safeX = selectedCell.first.coerceIn(0, (row.size - 1).coerceAtLeast(0))
+    val selectedPoint: ScanPoint = row.getOrNull(safeX) ?: ScanPoint(safeX, safeY, 0, 0f, 0f, TargetClassification.NEUTRAL, 0, 0L)
+
     var selectedSoilType by remember { mutableStateOf(SoilType.STANDARD) }
-    val calculatedDepth = remember(selectedCell, grid, selectedSoilType) {
+    val calculatedDepth = remember(safeX, safeY, grid, selectedSoilType) {
         SignalDepthCalculator.estimateCellDepth(
             grid = grid,
-            x = selectedCell.first,
-            y = selectedCell.second,
+            x = safeX,
+            y = safeY,
             soilType = selectedSoilType
         )
     }
@@ -150,152 +155,20 @@ fun TwoDimensionalView(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Heatmap Canvas with North Indicator
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFF030712))
-                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
-                ) {
-                    Canvas(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .pointerInput(grid) {
-                                detectTapGestures { offset ->
-                                    val cellW = size.width / grid.width
-                                    val cellH = size.height / grid.height
-                                    val gx = (offset.x / cellW).toInt().coerceIn(0, grid.width - 1)
-                                    val gy = (offset.y / cellH).toInt().coerceIn(0, grid.height - 1)
-                                    selectedCell = Pair(gx, gy)
-                                    val pt = grid.points[gy][gx]
-                                    AudioSynthesizer.playSignalTone(pt.filteredSignal)
-
-                                    val match = anomalies.find { it.gridX == gx && it.gridY == gy }
-                                    onSelectAnomaly(match)
-                                }
-                            }
-                    ) {
-                        val renderW = size.width
-                        val renderH = size.height
-                        val cellW = renderW / grid.width
-                        val cellH = renderH / grid.height
-
-                        if (smoothInterpolation) {
-                            // Subdivided interpolation grid
-                            val subStepsX = grid.width * 4
-                            val subStepsY = grid.height * 4
-                            val subW = renderW / subStepsX
-                            val subH = renderH / subStepsY
-
-                            for (sy in 0 until subStepsY) {
-                                val gy = (sy.toFloat() / subStepsY) * (grid.height - 1)
-                                val y0 = gy.toInt()
-                                val y1 = (y0 + 1).coerceAtMost(grid.height - 1)
-                                val wy = gy - y0
-
-                                for (sx in 0 until subStepsX) {
-                                    val gx = (sx.toFloat() / subStepsX) * (grid.width - 1)
-                                    val x0 = gx.toInt()
-                                    val x1 = (x0 + 1).coerceAtMost(grid.width - 1)
-                                    val wx = gx - x0
-
-                                    val s00 = grid.points[y0][x0].filteredSignal
-                                    val s10 = grid.points[y0][x1].filteredSignal
-                                    val s01 = grid.points[y1][x0].filteredSignal
-                                    val s11 = grid.points[y1][x1].filteredSignal
-
-                                    val sTop = s00 * (1f - wx) + s10 * wx
-                                    val sBottom = s01 * (1f - wx) + s11 * wx
-                                    val sig = sTop * (1f - wy) + sBottom * wy
-
-                                    val col = ColorScales.getPaletteColor(sig, palette)
-                                    drawRect(
-                                        color = col,
-                                        topLeft = Offset(sx * subW, sy * subH),
-                                        size = Size(subW + 0.5f, subH + 0.5f)
-                                    )
-                                }
-                            }
-                        } else {
-                            // Discrete Blocks
-                            for (y in 0 until grid.height) {
-                                for (x in 0 until grid.width) {
-                                    val sig = grid.points[y][x].filteredSignal
-                                    val col = ColorScales.getPaletteColor(sig, palette)
-                                    drawRect(
-                                        color = col,
-                                        topLeft = Offset(x * cellW, y * cellH),
-                                        size = Size(cellW, cellH)
-                                    )
-                                    drawRect(
-                                        color = Color(0x33000000),
-                                        topLeft = Offset(x * cellW, y * cellH),
-                                        size = Size(cellW, cellH),
-                                        style = Stroke(width = 1f)
-                                    )
-                                }
-                            }
-                        }
-
-                        // Draw Anomaly Target Rings
-                        for (anom in anomalies) {
-                            val cx = anom.gridX * cellW + cellW / 2f
-                            val cy = anom.gridY * cellH + cellH / 2f
-                            val isSel = anom.id == selectedAnomalyId
-                            val anomColor = Color(anom.classification.colorHex)
-
-                            drawCircle(
-                                color = anomColor,
-                                radius = cellW * 0.42f,
-                                center = Offset(cx, cy),
-                                style = Stroke(width = if (isSel) 3.5f else 2f)
-                            )
-                            drawCircle(
-                                color = anomColor.copy(alpha = 0.45f),
-                                radius = cellW * 0.22f,
-                                center = Offset(cx, cy)
-                            )
-                        }
-
-                        // Selected Cell Crosshair
-                        val selX = selectedCell.first * cellW + cellW / 2f
-                        val selY = selectedCell.second * cellH + cellH / 2f
-                        drawCircle(
-                            color = Color.White,
-                            radius = cellW * 0.48f,
-                            center = Offset(selX, selY),
-                            style = Stroke(width = 2.5f)
-                        )
-                        drawLine(Color.White, Offset(selX - cellW * 0.7f, selY), Offset(selX + cellW * 0.7f, selY), strokeWidth = 1.5f)
-                        drawLine(Color.White, Offset(selX, selY - cellH * 0.7f), Offset(selX, selY + cellH * 0.7f), strokeWidth = 1.5f)
-                    }
-
-                    // North Direction Badge
-                    Surface(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xCC0F172A),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155))
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Navigation,
-                                contentDescription = "North",
-                                tint = Color(0xFFF43F5E),
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Text("KUZEY (N)", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
+                // TwoDScanViewer: High-Performance 60 FPS Heatmap with non-square matrix safety
+                TwoDScanViewer(
+                    grid = grid,
+                    palette = palette,
+                    smoothInterpolation = smoothInterpolation,
+                    showValues = showValues,
+                    selectedCell = selectedCell,
+                    onSelectCell = { gx, gy ->
+                        selectedCell = Pair(gx, gy)
+                        val match = anomalies.find { it.gridX == gx && it.gridY == gy }
+                        onSelectAnomaly(match)
+                    },
+                    anomalies = anomalies
+                )
             }
         }
 
@@ -743,118 +616,13 @@ fun TwoDimensionalView(
             }
         }
 
-        // Section 3: Depth Cross-Section Analyzer
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .testTag("depth_cross_section_card"),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
-            shape = RoundedCornerShape(16.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(Icons.Default.CompassCalibration, contentDescription = null, tint = Color(0xFF06B6D4))
-                        Text(
-                            text = "Jeofizik Derinlik Kesiti (Cross-Section)",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        FilterChip(
-                            selected = sliceAxis == "X",
-                            onClick = { sliceAxis = "X" },
-                            label = { Text("Y Kesiti (X Aksı)", fontSize = 11.sp) }
-                        )
-                        FilterChip(
-                            selected = sliceAxis == "Y",
-                            onClick = { sliceAxis = "Y" },
-                            label = { Text("X Kesiti (Y Aksı)", fontSize = 11.sp) }
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Profile Canvas: Plots Depth Penetration & Signal Amplitude
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF040817))
-                        .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize().padding(12.dp)) {
-                        val w = size.width
-                        val h = size.height
-
-                        // Axis lines
-                        val groundY = h * 0.35f
-                        drawLine(Color(0xFF475569), Offset(0f, groundY), Offset(w, groundY), strokeWidth = 1.5f)
-
-                        // Data along selected slice
-                        val slicePoints = if (sliceAxis == "X") {
-                            grid.points[selectedCell.second]
-                        } else {
-                            grid.points.map { it[selectedCell.first] }
-                        }
-
-                        val count = slicePoints.size
-                        val stepPx = w / (count - 1).coerceAtLeast(1)
-
-                        // Signal Curve (above ground line)
-                        val signalPath = Path()
-                        val depthPath = Path()
-
-                        for (i in 0 until count) {
-                            val p = slicePoints[i]
-                            val px = i * stepPx
-                            // Signal amplitude scaled [-100..100] -> +/- (groundY * 0.8)
-                            val sigY = groundY - (p.filteredSignal / 100f) * (groundY * 0.85f)
-                            if (i == 0) signalPath.moveTo(px, sigY) else signalPath.lineTo(px, sigY)
-
-                            // Subsurface depth penetration (below ground line)
-                            val dY = groundY + (p.depth / 6f) * (h - groundY)
-                            if (i == 0) depthPath.moveTo(px, dY) else depthPath.lineTo(px, dY)
-
-                            // Draw vertical probe line at selected column
-                            if ((sliceAxis == "X" && i == selectedCell.first) || (sliceAxis == "Y" && i == selectedCell.second)) {
-                                drawLine(Color(0xFFF59E0B), Offset(px, 0f), Offset(px, h), strokeWidth = 2f)
-                            }
-                        }
-
-                        drawPath(signalPath, color = Color(0xFF06B6D4), style = Stroke(width = 2.5f))
-                        drawPath(depthPath, color = Color(0xFFEAB308), style = Stroke(width = 2f))
-                    }
-
-                    // Legend
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Box(modifier = Modifier.size(8.dp).background(Color(0xFF06B6D4), CircleShape))
-                            Text("Sinyal Eğrisi", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Box(modifier = Modifier.size(8.dp).background(Color(0xFFEAB308), CircleShape))
-                            Text("Derinlik Penetrasyonu", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
-                    }
-                }
-            }
-        }
+        // Section 3: Depth Cross-Section Analyzer (Safe non-square matrix viewer)
+        CrossSectionViewer(
+            grid = grid,
+            selectedCell = selectedCell,
+            sliceAxis = sliceAxis,
+            onToggleAxis = { sliceAxis = it }
+        )
 
         // Section 4: Detected Anomalies Cards
         Text(
