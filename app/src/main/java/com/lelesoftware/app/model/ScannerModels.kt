@@ -79,7 +79,12 @@ data class DepthCalculationResult(
     val soilType: SoilType,
     val confidencePercent: Int,
     val method: String,
-    val profileCurve: List<Pair<Float, Float>> = emptyList()
+    val profileCurve: List<Pair<Float, Float>> = emptyList(),
+    val estimatedVolumeM3: Float = 0.5f,
+    val formFactor: String = "Kompakt Dipol",
+    val sensorHeightMeters: Float = 0.20f,
+    val fwhmDepthMeters: Float = estimatedDepthMeters,
+    val inversionDepthMeters: Float = estimatedDepthMeters
 )
 
 data class DetectedAnomaly(

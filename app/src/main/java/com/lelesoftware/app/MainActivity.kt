@@ -81,13 +81,17 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.lelesoftware.app.data.local.AnomalyRepository
+import androidx.compose.material.icons.filled.FilterAlt
 import com.lelesoftware.app.model.CameraPreset
+import com.lelesoftware.app.model.DetectedAnomaly
 import com.lelesoftware.app.model.PaletteType
 import com.lelesoftware.app.model.ScanGrid
 import com.lelesoftware.app.model.ViewMode
 import com.lelesoftware.app.ui.components.AnalysisDialog
+import com.lelesoftware.app.ui.components.AnomalyDetailBottomSheet
 import com.lelesoftware.app.ui.components.BottomControlsBar
 import com.lelesoftware.app.ui.components.DevelopmentPlanScreen
+import com.lelesoftware.app.ui.components.DspMineralControlPanel
 import com.lelesoftware.app.ui.components.LiveScannerScreen
 import com.lelesoftware.app.ui.components.LoginScreen
 import com.lelesoftware.app.ui.components.SavedAnomaliesDialog
@@ -181,6 +185,11 @@ fun LeleSoftwareApp(
     var isCompassOpen by remember { mutableStateOf(false) }
     var isD3ChartOpen by remember { mutableStateOf(false) }
     var isSavedAnomaliesOpen by remember { mutableStateOf(false) }
+    var isDetailSheetOpen by remember { mutableStateOf(false) }
+    var sheetAnomaly by remember { mutableStateOf<DetectedAnomaly?>(null) }
+    var sheetGridX by remember { mutableStateOf(0) }
+    var sheetGridY by remember { mutableStateOf(0) }
+    var isDspFilterOpen by remember { mutableStateOf(false) }
 
     fun loadPreset(key: String) {
         selectedAnomalyId = null
@@ -247,6 +256,18 @@ fun LeleSoftwareApp(
                     titleContentColor = Color.White
                 ),
                 actions = {
+                    // DSP Z-Score Mineral & IMU Filter Button
+                    IconButton(
+                        onClick = { isDspFilterOpen = true },
+                        modifier = Modifier.testTag("dsp_filter_button")
+                    ) {
+                        Icon(
+                            Icons.Default.FilterAlt,
+                            contentDescription = "DSP Z-Score & IMU Filtresi",
+                            tint = Color(0xFFF59E0B)
+                        )
+                    }
+
                     // D3 Real-Time Soil Density & Anomaly Depth Chart Toggle Button
                     IconButton(
                         onClick = { isD3ChartOpen = !isD3ChartOpen },
@@ -480,7 +501,13 @@ fun LeleSoftwareApp(
                             selectedAnomalyId = selectedAnomalyId,
                             onSelectAnomaly = { selectedAnomalyId = it?.id },
                             anomalies = anomalies,
-                            cameraPreset = cameraPreset
+                            cameraPreset = cameraPreset,
+                            onOpenAnomalyDetail = { anom ->
+                                sheetAnomaly = anom
+                                sheetGridX = anom.gridX
+                                sheetGridY = anom.gridY
+                                isDetailSheetOpen = true
+                            }
                         )
 
                         // D3 Chart Component Floating on Main 3D Dashboard
@@ -566,7 +593,14 @@ fun LeleSoftwareApp(
                         palette = palette,
                         anomalies = anomalies,
                         selectedAnomalyId = selectedAnomalyId,
-                        onSelectAnomaly = { selectedAnomalyId = it?.id }
+                        onSelectAnomaly = { selectedAnomalyId = it?.id },
+                        onOpenAnomalyDetail = { x, y ->
+                            val match = anomalies.find { it.gridX == x && it.gridY == y }
+                            sheetAnomaly = match
+                            sheetGridX = x
+                            sheetGridY = y
+                            isDetailSheetOpen = true
+                        }
                     )
                 }
 
@@ -643,6 +677,62 @@ fun LeleSoftwareApp(
                 ) {
                     Text(
                         "TAMAM / PUSULAYI KAPAT",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+        }
+    }
+
+    // Faz 2: Material 3 Otomatik Derinlik & Inversion BottomSheet
+    if (isDetailSheetOpen) {
+        AnomalyDetailBottomSheet(
+            grid = currentGrid,
+            anomaly = sheetAnomaly,
+            gridX = sheetGridX,
+            gridY = sheetGridY,
+            onDismiss = { isDetailSheetOpen = false },
+            onSaveToDatabase = { anom ->
+                coroutineScope.launch {
+                    repository.saveAnomaly(
+                        anomaly = anom,
+                        scanId = currentGrid.id,
+                        locationName = currentGrid.locationName
+                    )
+                }
+            }
+        )
+    }
+
+    // Faz 1: DSP Mineral & IMU Drift Control Dialog
+    if (isDspFilterOpen) {
+        Dialog(onDismissRequest = { isDspFilterOpen = false }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                DspMineralControlPanel(
+                    rawDeltaNt = (sheetAnomaly?.peakAmplitude ?: 18.5f),
+                    currentPitch = 1.2f,
+                    currentRoll = -0.5f,
+                    currentYaw = 38.0f
+                )
+                Button(
+                    onClick = { isDspFilterOpen = false },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("close_dsp_dialog_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        "KAPAT",
                         color = Color.Black,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp

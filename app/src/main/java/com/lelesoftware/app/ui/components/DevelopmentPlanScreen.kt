@@ -64,6 +64,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lelesoftware.app.R
+import com.lelesoftware.app.dsp.Bno085KalmanFusion
+import com.lelesoftware.app.dsp.DspMineralFilter
 
 @Composable
 fun DevelopmentPlanScreen(
@@ -136,6 +138,11 @@ fun DevelopmentPlanScreen(
                         onClick = { activeTab = "android" },
                         label = { Text("Yazılım Çekirdeği", fontSize = 12.sp) }
                     )
+                    FilterChip(
+                        selected = activeTab == "dsp_python",
+                        onClick = { activeTab = "dsp_python" },
+                        label = { Text("DSP & IMU (Python/Kotlin)", fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                    )
                 }
             }
         }
@@ -155,6 +162,9 @@ fun DevelopmentPlanScreen(
             }
             "android" -> {
                 AndroidSection(onCopy = ::copyCode)
+            }
+            "dsp_python" -> {
+                DspPythonSection(onCopy = ::copyCode)
             }
         }
     }
@@ -623,6 +633,73 @@ dependencies {
         code = gradleDependencies,
         onCopy = { onCopy(gradleDependencies, "Gradle Kodları") }
     )
+}
+
+@Composable
+private fun DspPythonSection(onCopy: (String, String) -> Unit) {
+    val fwhmPythonCode = """import numpy as np
+
+def calculate_anomaly_depth_fwhm(grid_matrix, center_x, center_y, step_meters=0.5, sensor_height=0.20, soil_factor=1.0):
+    '''
+    Geophysical 2D/3D Amplitude & FWHM (Full Width at Half Maximum) Inversion
+    Returns: estimated_depth (m), estimated_volume (m³), form_factor
+    '''
+    peak_val = grid_matrix[center_y, center_x]
+    is_cavity = peak_val < 0
+    base_noise = np.median(grid_matrix)
+    delta_amp = max(abs(peak_val - base_noise), 4.0)
+    half_threshold = base_noise - (delta_amp * 0.5) if is_cavity else base_noise + (delta_amp * 0.5)
+
+    # 1. Full Width at Half Maximum (FWHM) along axes
+    x_slice = grid_matrix[center_y, :]
+    y_slice = grid_matrix[:, center_x]
+    
+    indices_x = np.where(x_slice <= half_threshold if is_cavity else x_slice >= half_threshold)[0]
+    indices_y = np.where(y_slice <= half_threshold if is_cavity else y_slice >= half_threshold)[0]
+    
+    span_x = (indices_x[-1] - indices_x[0] + 1) * step_meters if len(indices_x) > 0 else step_meters
+    span_y = (indices_y[-1] - indices_y[0] + 1) * step_meters if len(indices_y) > 0 else step_meters
+    fwhm = max((span_x + span_y) / 2.0, step_meters * 0.9)
+
+    # 2. Peters' Half-Slope Rule & Sensor Height Correction
+    k_slope = 0.62 if is_cavity else 0.52
+    raw_depth = max((k_slope * fwhm) - sensor_height, 0.15)
+    estimated_depth = np.clip(raw_depth * soil_factor, 0.20, 8.0)
+
+    # 3. Voxel Cluster Integration for Estimated Volume (m³)
+    cluster_mask = grid_matrix <= half_threshold if is_cavity else grid_matrix >= half_threshold
+    cell_area = step_meters * step_meters
+    thickness = np.clip(fwhm * 0.45, 0.15, 3.5)
+    volume_m3 = np.clip(np.sum(cluster_mask) * cell_area * thickness, 0.05, 50.0)
+
+    form_factor = "Kavitasyon / Boşluk" if is_cavity else "Kompakt Dipol Metal"
+    return {
+        "estimated_depth_m": float(estimated_depth),
+        "fwhm_m": float(fwhm),
+        "volume_m3": float(volume_m3),
+        "form_factor": form_factor
+    }
+"""
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        CodeSnippetCard(
+            title = "Python: DSP Z-Score & Moving Median Mineral Filtresi",
+            code = DspMineralFilter.PYTHON_REFERENCE_CODE.trimIndent(),
+            onCopy = { onCopy(DspMineralFilter.PYTHON_REFERENCE_CODE.trimIndent(), "DSP Mineral Filtresi (Python)") }
+        )
+
+        CodeSnippetCard(
+            title = "Python: BNO085 9-Eksen IMU Kalman Drift Kompansasyonu",
+            code = Bno085KalmanFusion.PYTHON_REFERENCE_CODE.trimIndent(),
+            onCopy = { onCopy(Bno085KalmanFusion.PYTHON_REFERENCE_CODE.trimIndent(), "BNO085 Kalman IMU Fusion (Python)") }
+        )
+
+        CodeSnippetCard(
+            title = "Python: Otomatik FWHM & Inversion Derinlik ve Hacim Motoru",
+            code = fwhmPythonCode,
+            onCopy = { onCopy(fwhmPythonCode, "FWHM & Hacim Inversion (Python)") }
+        )
+    }
 }
 
 @Composable

@@ -5,10 +5,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.rememberTransformableState
 import androidx.compose.foundation.gestures.transformable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import java.util.Locale
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -52,6 +65,7 @@ fun ThreeDimensionalVisualizer(
     onSelectAnomaly: (DetectedAnomaly?) -> Unit,
     anomalies: List<DetectedAnomaly>,
     cameraPreset: CameraPreset,
+    onOpenAnomalyDetail: ((DetectedAnomaly) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // 3D Camera Angles & Distance
@@ -337,11 +351,52 @@ fun ThreeDimensionalVisualizer(
                 .align(Alignment.TopStart)
                 .padding(12.dp)
         ) {
-            Text(
-                text = "Kamera: Yaw ${yawDeg.toInt()}° | Pitch ${pitchDeg.toInt()}° | Preseti: ${cameraPreset.label}",
-                color = Color(0xFF94A3B8),
-                fontSize = 11.sp
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Kamera: Yaw ${yawDeg.toInt()}° | Pitch ${pitchDeg.toInt()}° | Preseti: ${cameraPreset.label}",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 11.sp
+                )
+
+                // If anomaly selected, show Faz 2 BottomSheet trigger chip
+                selectedAnomalyId?.let { id ->
+                    val anom = anomalies.find { it.id == id }
+                    if (anom != null) {
+                        Surface(
+                            modifier = Modifier
+                                .clickable { onOpenAnomalyDetail?.invoke(anom) }
+                                .testTag("open_anomaly_bottomsheet_from_3d"),
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xEE0F172A),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF00E5FF))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color(anom.classification.colorHex),
+                                    modifier = Modifier.size(8.dp)
+                                ) {}
+                                Text(
+                                    text = "${anom.classification.label} (${String.format(Locale.US, "%.2fm", anom.depthMeters)}) • Inversion & Hacim Analizi",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
+                                )
+                                Icon(
+                                    Icons.Default.Analytics,
+                                    contentDescription = null,
+                                    tint = Color(0xFF00E5FF),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

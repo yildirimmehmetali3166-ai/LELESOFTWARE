@@ -311,6 +311,14 @@ fun LiveScannerScreen(
             }
         }
 
+        // Section 1.5: DSP Z-Score Mineral & IMU Sensor Fusion Control Panel
+        DspMineralControlPanel(
+            rawDeltaNt = deviceStatus.gradientDelta.toFloat(),
+            currentPitch = deviceStatus.currentPitch,
+            currentRoll = deviceStatus.currentRoll,
+            currentYaw = 45f + (currentStepX * 4f)
+        )
+
         // Section 2: Earth Magnetic Axis Survey Compass
         MagneticSurveyCompass()
 

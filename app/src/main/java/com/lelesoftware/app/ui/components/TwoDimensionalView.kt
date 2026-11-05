@@ -74,6 +74,7 @@ fun TwoDimensionalView(
     anomalies: List<DetectedAnomaly>,
     selectedAnomalyId: String?,
     onSelectAnomaly: (DetectedAnomaly?) -> Unit,
+    onOpenAnomalyDetail: ((Int, Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     var smoothInterpolation by remember { mutableStateOf(true) }
@@ -719,6 +720,26 @@ fun TwoDimensionalView(
                     fontSize = 10.sp,
                     lineHeight = 14.sp
                 )
+
+                // Faz 2 BottomSheet Açma Butonu
+                Button(
+                    onClick = { onOpenAnomalyDetail?.invoke(selectedCell.first, selectedCell.second) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .testTag("open_bottomsheet_from_2d_button"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.Analytics, contentDescription = null, tint = Color.Black)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "FWHM & Hacim Inversion Analiz Paneli (BottomSheet)",
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
 

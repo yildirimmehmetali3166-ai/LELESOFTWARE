@@ -32,11 +32,18 @@ object SignalDepthCalculator {
      * Verilen anomali merkezi (gridX, gridY) için 2D genlik matrisini analiz ederek
      * derinlik, FWHM, güvenilirlik ve sönümleme profilini hesaplar.
      */
+    /**
+     * Verilen anomali merkezi (gridX, gridY) için 2D/3D genlik matrisini analiz ederek
+     * FWHM, dipol inversiyon derinliği, tahmini hacim (m³) ve form analizini hesaplar.
+     *
+     * @param sensorHeightMeters Sensörün yerden yüksekliği (ör. 0.20m prob mesafesi)
+     */
     fun calculateAnomalyDepth(
         grid: ScanGrid,
         centerX: Int,
         centerY: Int,
-        soilType: SoilType = SoilType.STANDARD
+        soilType: SoilType = SoilType.STANDARD,
+        sensorHeightMeters: Float = 0.20f
     ): DepthCalculationResult {
         val width = grid.width
         val height = grid.height
@@ -49,7 +56,6 @@ object SignalDepthCalculator {
         val isCavity = peakVal < 0f
 
         // 1. Zemin gürültü seviyesi (Baseline Noise) hesaplama
-        // Merkezden 2-3 hücre uzaktaki çevre noktaların medyan/ortalaması
         val perimeterValues = mutableListOf<Float>()
         for (dy in -3..3) {
             for (dx in -3..3) {
@@ -97,42 +103,81 @@ object SignalDepthCalculator {
 
         val fwhmMeters = ((widthX + widthY) / 2.0f).coerceAtLeast(step * 0.9f)
 
-        // 3. Peters' Half-Slope Jeofizik Kuralı ile Derinlik
-        // Metalik dipollerde z ≈ 0.52 * FWHM, boşluk/oda yapılarında z ≈ 0.60 * FWHM
-        val zFwhm = if (isCavity) {
+        // 3. Peters' Half-Slope Jeofizik Kuralı ile Derinlik & Sensör Yüksekliği Çıkartımı
+        // Metalik dipollerde z ≈ 0.52 * FWHM - h_sensor, boşluk/oda yapılarında z ≈ 0.62 * FWHM - h_sensor
+        val rawFwhmZ = if (isCavity) {
             fwhmMeters * 0.62f
         } else {
             fwhmMeters * 0.52f
         }
+        val zFwhm = (rawFwhmZ - sensorHeightMeters).coerceAtLeast(0.15f)
 
         // 4. Sinyal Genliği Sönümleme İnversiyonu (Dipole Amplitude Inversion)
         // Manyetik dipol B ∝ 1/z³ => z ∝ (100 / Amp)^(1/3)
-        // Boşluk hacimleri B ∝ 1/z² => z ∝ (100 / Amp)^(1/2.2)
-        val zAmp = if (isCavity) {
+        val rawAmpZ = if (isCavity) {
             1.65f * (100.0f / deltaAmp.coerceAtLeast(8f)).pow(0.40f)
         } else {
             1.20f * (100.0f / deltaAmp.coerceAtLeast(8f)).pow(0.35f)
         }
+        val zAmp = (rawAmpZ - sensorHeightMeters).coerceAtLeast(0.15f)
 
         // 5. Ağırlıklı Ortalama ve Zemin Tipi Çarpanı
         val combinedRawDepth = (zFwhm * 0.65f + zAmp * 0.35f)
-        val estimatedDepth = (combinedRawDepth * soilType.attenuationFactor).coerceIn(0.25f, 6.50f)
+        val estimatedDepth = (combinedRawDepth * soilType.attenuationFactor).coerceIn(0.20f, 7.50f)
 
-        // 6. Güvenilirlik (Confidence) & Hata Payı
+        // 6. Tahmini Hacim (m³) ve Form Analizi
+        var contiguousCellCount = 0
+        var minClusterX = cx
+        var maxClusterX = cx
+        var minClusterY = cy
+        var maxClusterY = cy
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val v = grid.points[y][x].filteredSignal
+                val isAboveHalf = if (isCavity) v <= halfAmpThreshold else v >= halfAmpThreshold
+                val dist = sqrt(((x - cx) * (x - cx) + (y - cy) * (y - cy)).toFloat())
+                if (isAboveHalf && dist <= (fwhmMeters / step) * 1.6f) {
+                    contiguousCellCount++
+                    minClusterX = min(minClusterX, x)
+                    maxClusterX = max(maxClusterX, x)
+                    minClusterY = min(minClusterY, y)
+                    maxClusterY = max(maxClusterY, y)
+                }
+            }
+        }
+        val cellArea = step * step
+        val lateralSpanX = (maxClusterX - minClusterX + 1) * step
+        val lateralSpanY = (maxClusterY - minClusterY + 1) * step
+        val aspectRatio = max(lateralSpanX, lateralSpanY) / min(lateralSpanX, lateralSpanY).coerceAtLeast(0.2f)
+
+        val formFactor = when {
+            isCavity && aspectRatio > 2.2f -> "Tünel / Mahzen Hattı"
+            isCavity && contiguousCellCount > 8 -> "Dikdörtgen Mezar Odası"
+            isCavity -> "Kavitasyon / Boşluk"
+            !isCavity && aspectRatio > 2.5f -> "Boru Hattı / Silindirik Metal"
+            !isCavity && contiguousCellCount <= 4 -> "Kompakt Dipol (Sikke / Küçük Metal)"
+            !isCavity && contiguousCellCount in 5..14 -> "Kompakt Kütle (Altın / Bronz Küpü)"
+            else -> "Yayvan Mineralize Kütle"
+        }
+
+        val estimatedThickness = (fwhmMeters * 0.45f).coerceIn(0.15f, 3.5f)
+        val estimatedVolumeM3 = (contiguousCellCount.coerceAtLeast(1) * cellArea * estimatedThickness).coerceIn(0.05f, 40.0f)
+
+        // 7. Güvenilirlik (Confidence) & Hata Payı
         val symmetryRatio = (min(widthX, widthY) / max(widthX, widthY)).coerceIn(0.4f, 1.0f)
         val snrFactor = (deltaAmp / (abs(baseNoise) + 3.0f)).coerceIn(1.0f, 6.0f)
-        val confidence = (68 + (symmetryRatio * 18) + (snrFactor * 2.5f)).roundToInt().coerceIn(65, 98)
+        val confidence = (70 + (symmetryRatio * 18) + (snrFactor * 2.0f)).roundToInt().coerceIn(65, 99)
 
-        val marginPercent = ((100 - confidence) / 120.0f).coerceIn(0.08f, 0.28f)
-        val minDepth = (estimatedDepth * (1.0f - marginPercent)).coerceAtLeast(0.15f)
+        val marginPercent = ((100 - confidence) / 120.0f).coerceIn(0.06f, 0.25f)
+        val minDepth = (estimatedDepth * (1.0f - marginPercent)).coerceAtLeast(0.10f)
         val maxDepth = (estimatedDepth * (1.0f + marginPercent))
 
-        // 7. Derinlik Penetrasyon Eğrisi (0m .. 5m aralığında teorik genlik düşüşü)
+        // 8. Derinlik Penetrasyon Eğrisi (0m .. 5m aralığında teorik genlik düşüşü)
         val profileCurve = mutableListOf<Pair<Float, Float>>()
         val depthSteps = 12
         for (i in 0..depthSteps) {
             val d = (i * 5.0f / depthSteps)
-            // Sönümleme modeli: A(z) = A0 / (1 + (z / z_est)^2.8)
             val att = deltaAmp / (1.0f + (d / estimatedDepth).pow(2.8f))
             profileCurve.add(Pair(d, att))
         }
@@ -150,8 +195,13 @@ object SignalDepthCalculator {
             fwhmMeters = fwhmMeters,
             soilType = soilType,
             confidencePercent = confidence,
-            method = if (isCavity) "Peters Half-Slope (Boşluk/Oda Modeli)" else "Dipol FWHM & Genlik İnversiyonu",
-            profileCurve = profileCurve
+            method = if (isCavity) "Peters Half-Slope (Boşluk/Oda Inversion)" else "FWHM Dipol & Manyetik Inversion",
+            profileCurve = profileCurve,
+            estimatedVolumeM3 = estimatedVolumeM3,
+            formFactor = formFactor,
+            sensorHeightMeters = sensorHeightMeters,
+            fwhmDepthMeters = zFwhm,
+            inversionDepthMeters = zAmp
         )
     }
 
@@ -162,9 +212,10 @@ object SignalDepthCalculator {
         grid: ScanGrid,
         x: Int,
         y: Int,
-        soilType: SoilType = SoilType.STANDARD
+        soilType: SoilType = SoilType.STANDARD,
+        sensorHeightMeters: Float = 0.20f
     ): DepthCalculationResult {
-        return calculateAnomalyDepth(grid, x, y, soilType)
+        return calculateAnomalyDepth(grid, x, y, soilType, sensorHeightMeters)
     }
 
     /**
