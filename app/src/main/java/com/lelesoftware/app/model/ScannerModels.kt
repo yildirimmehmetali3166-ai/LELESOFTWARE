@@ -52,7 +52,80 @@ data class ScanGrid(
     val groundBalance: Int,
     val sensorType: String,
     val locationName: String,
-    val notes: String
+    val notes: String,
+    val stepYMeters: Float = stepDistanceMeters,
+    val isCsvImport: Boolean = false,
+    val sourceFileName: String? = null,
+    val rawXMin: Float = 0f,
+    val rawXMax: Float = width * stepDistanceMeters,
+    val rawYMin: Float = 0f,
+    val rawYMax: Float = height * stepDistanceMeters,
+    val csvReport: CsvDeepAnalysisReport? = null
+)
+
+data class CsvBandSummary(
+    val bandIndex: Int,
+    val xRangeLabel: String,
+    val minZ: Float,
+    val maxZ: Float,
+    val medianZ: Float,
+    val minValue: Float,
+    val maxValue: Float,
+    val medianValue: Float,
+    val dominantBehavior: String
+)
+
+data class CsvClusterFinding(
+    val id: String,
+    val category: String,
+    val title: String,
+    val classification: TargetClassification,
+    val cellCount: Int,
+    val xRange: String,
+    val yRange: String,
+    val peakRawX: Float,
+    val peakRawY: Float,
+    val peakGridX: Int,
+    val peakGridY: Int,
+    val peakZ: Float,
+    val peakValue: Float,
+    val zScore: Float,
+    val estimatedDepthMeters: Float,
+    val interpretation: String
+)
+
+data class CsvDeepAnalysisReport(
+    val fileName: String,
+    val totalRows: Int,
+    val validRows: Int,
+    val deadCalibrationCells: Int,
+    val width: Int,
+    val height: Int,
+    val rawXRange: Pair<Float, Float>,
+    val rawYRange: Pair<Float, Float>,
+    val stepXRaw: Float,
+    val stepYRaw: Float,
+    val valueMin: Float,
+    val valueMax: Float,
+    val valueMean: Float,
+    val valueMedian: Float,
+    val valueStdDev: Float,
+    val valueMad: Float,
+    val zMin: Float,
+    val zMax: Float,
+    val zMean: Float,
+    val zMedian: Float,
+    val positiveCount: Int,
+    val negativeCount: Int,
+    val strongVoidCount: Int,
+    val saturatedFloorCount: Int,
+    val highImpedanceCount: Int,
+    val polarityFlipCount: Int,
+    val calibrationProductMedian: Float,
+    val bandSummaries: List<CsvBandSummary>,
+    val findings: List<CsvClusterFinding>,
+    val executiveSummary: String,
+    val fieldRecommendations: List<String>
 )
 
 enum class SoilType(

@@ -180,16 +180,23 @@ fun TwoDimensionalView(
             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF1E293B))
         ) {
             Column(modifier = Modifier.padding(14.dp)) {
+                val rawX = if (grid.width > 1) grid.rawXMin + safeX * ((grid.rawXMax - grid.rawXMin) / (grid.width - 1)) else grid.rawXMin
+                val rawY = if (grid.height > 1) grid.rawYMin + safeY * ((grid.rawYMax - grid.rawYMin) / (grid.height - 1)) else grid.rawYMin
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Seçili Nokta: (${selectedCell.first}, ${selectedCell.second}) - ${(selectedCell.first * grid.stepDistanceMeters).format(1)}m x ${(selectedCell.second * grid.stepDistanceMeters).format(1)}m",
+                        text = if (grid.isCsvImport) {
+                            "Hücre ($safeX,$safeY) • Ham (${rawX.format(1)}, ${rawY.format(1)})"
+                        } else {
+                            "Seçili Nokta: ($safeX, $safeY) - ${(safeX * grid.stepDistanceMeters).format(1)}m x ${(safeY * grid.stepYMeters).format(1)}m"
+                        },
                         color = Color.White,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        fontSize = 13.sp,
+                        modifier = Modifier.weight(1f)
                     )
                     Surface(
                         shape = RoundedCornerShape(6.dp),

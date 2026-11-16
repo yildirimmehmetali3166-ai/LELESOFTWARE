@@ -103,7 +103,7 @@ fun CrossSectionViewer(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Matris Boyutu: ${totalCols}x${totalRows} (${(totalCols * grid.stepDistanceMeters).toInt()}m x ${(totalRows * grid.stepDistanceMeters).toInt()}m)",
+                            text = "Matris Boyutu: ${totalCols}x${totalRows} (${String.format(java.util.Locale.US, "%.1f", totalCols * grid.stepDistanceMeters)}m x ${String.format(java.util.Locale.US, "%.1f", totalRows * grid.stepYMeters)}m)",
                             color = Color(0xFF94A3B8),
                             fontSize = 11.sp
                         )

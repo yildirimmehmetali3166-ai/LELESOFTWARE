@@ -62,10 +62,14 @@ fun TwoDScanViewer(
         }
     }
 
+    val physicalW = width * grid.stepDistanceMeters.coerceAtLeast(0.01f)
+    val physicalH = height * grid.stepYMeters.coerceAtLeast(0.01f)
+    val physicalAspect = (physicalW / physicalH).coerceIn(0.65f, 2.5f)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(width.toFloat() / height.toFloat().coerceAtLeast(1f))
+            .aspectRatio(physicalAspect)
             .clip(RoundedCornerShape(12.dp))
             .background(Color(0xFF030712))
             .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
@@ -97,8 +101,8 @@ fun TwoDScanViewer(
 
             if (smoothInterpolation) {
                 // Subdivided interpolation grid (optimized steps)
-                val subStepsX = width * 3
-                val subStepsY = height * 3
+                val subStepsX = (width * 2).coerceAtMost(120)
+                val subStepsY = (height * 3).coerceAtMost(96)
                 val subW = renderW / subStepsX.toFloat()
                 val subH = renderH / subStepsY.toFloat()
 
@@ -156,6 +160,7 @@ fun TwoDScanViewer(
             }
 
             // Draw anomaly highlight rings
+            val markerRadius = (minOf(cellW, cellH) * 0.45f).coerceAtLeast(5.5f)
             for (anom in anomalies) {
                 val ax = anom.gridX.coerceIn(0, width - 1)
                 val ay = anom.gridY.coerceIn(0, height - 1)
@@ -164,14 +169,14 @@ fun TwoDScanViewer(
 
                 drawCircle(
                     color = Color(anom.classification.colorHex).copy(alpha = 0.4f),
-                    radius = cellW * 0.45f,
+                    radius = markerRadius,
                     center = anomCenter
                 )
                 drawCircle(
                     color = Color(anom.classification.colorHex),
-                    radius = cellW * 0.35f,
+                    radius = markerRadius * 0.78f,
                     center = anomCenter,
-                    style = Stroke(width = if (isSelected) 2.5f else 1.5f)
+                    style = Stroke(width = if (isSelected) 3f else 1.8f)
                 )
             }
 

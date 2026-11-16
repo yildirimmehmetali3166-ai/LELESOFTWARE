@@ -132,18 +132,21 @@ fun ThreeDScanViewer(
     }
 
     // 2. Pre-compute 3D Mesh vertices and quads OUTSIDE onDraw
-    val cachedMeshData = remember(grid, palette, depthCutMeters, thresholdFilter) {
+    val yScale = (grid.stepYMeters / grid.stepDistanceMeters.coerceAtLeast(0.001f)).coerceIn(0.5f, 5.0f)
+
+    val cachedMeshData = remember(grid, palette, depthCutMeters, thresholdFilter, yScale) {
         val width = grid.width.coerceAtLeast(1)
         val height = grid.height.coerceAtLeast(1)
         val centerX = (width - 1) * 0.5f
         val centerY = (height - 1) * 0.5f
+        val zReliefFactor = if (grid.isCsvImport) 6.5f else 2.8f
 
         val vertices = Array(height) { y ->
             val row = grid.points.getOrNull(y) ?: emptyList()
             Array(width) { x ->
                 val pt = row.getOrNull(x)
                 val sig = pt?.filteredSignal ?: 0f
-                val zMeters = (sig / 100f) * 2.8f
+                val zMeters = (sig / 100f) * zReliefFactor
                 val clampedZ = zMeters.coerceIn(-depthCutMeters, depthCutMeters)
                 val color = ColorScales.getPaletteColor(sig, palette)
                 val isVisible = abs(sig) >= thresholdFilter
@@ -152,7 +155,7 @@ fun ThreeDScanViewer(
                     gridX = x,
                     gridY = y,
                     normX = x - centerX,
-                    normY = y - centerY,
+                    normY = (y - centerY) * yScale,
                     normZ = clampedZ,
                     color = color,
                     filteredSignal = sig,
@@ -216,7 +219,7 @@ fun ThreeDScanViewer(
             val centerY = canvasH * 0.5f
 
             val matrix = transformMatrix
-            val maxDimension = maxOf(grid.width, grid.height, 1)
+            val maxDimension = maxOf(grid.width.toFloat(), grid.height * yScale, 1f)
             val baseCellSize = (canvasW.coerceAtMost(canvasH) / (maxDimension * 1.55f)) * scaleFactor
 
             // Fast inline projection: (screenX, screenY, depthOrder)
@@ -235,6 +238,7 @@ fun ThreeDScanViewer(
             drawOptimizedGroundGrid(
                 width = grid.width,
                 height = grid.height,
+                yScale = yScale,
                 baseCellSize = baseCellSize,
                 centerX = centerX,
                 centerY = centerY,
@@ -325,7 +329,7 @@ fun ThreeDScanViewer(
                 val gx = (anom.gridX.toFloat()).coerceIn(0f, (gridWidth - 1).toFloat())
                 val gy = (anom.gridY.toFloat()).coerceIn(0f, (gridHeight - 1).toFloat())
                 val normX = gx - cx
-                val normY = gy - cy
+                val normY = (gy - cy) * yScale
 
                 val pGround = projectFast(normX, normY, 0f)
                 val targetZ = -(anom.depthMeters / depthCutMeters.coerceAtLeast(0.1f) * 2.8f)
@@ -433,6 +437,7 @@ data class TransformationMatrix(
 private fun DrawScope.drawOptimizedGroundGrid(
     width: Int,
     height: Int,
+    yScale: Float,
     baseCellSize: Float,
     centerX: Float,
     centerY: Float,
@@ -440,7 +445,8 @@ private fun DrawScope.drawOptimizedGroundGrid(
 ) {
     val axisColor = Color(0x33475569)
     val cx = (width - 1) * 0.5f
-    val cy = (height - 1) * 0.5f
+    val rawCy = (height - 1) * 0.5f
+    val cy = rawCy * yScale
 
     for (x in 0 until width) {
         val nx = x - cx
@@ -453,7 +459,7 @@ private fun DrawScope.drawOptimizedGroundGrid(
     }
 
     for (y in 0 until height) {
-        val ny = y - cy
+        val ny = (y - rawCy) * yScale
         val p0x = centerX + ((-cx) * matrix.cosYaw - ny * matrix.sinYaw) * baseCellSize
         val p0y = centerY + ((-cx) * matrix.sinYaw + ny * matrix.cosYaw) * matrix.sinPitch * baseCellSize
         val p1x = centerX + (cx * matrix.cosYaw - ny * matrix.sinYaw) * baseCellSize

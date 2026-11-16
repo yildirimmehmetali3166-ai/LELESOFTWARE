@@ -1,10 +1,15 @@
 package com.lelesoftware.app
 
+import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -81,7 +86,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.lelesoftware.app.data.local.AnomalyRepository
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.FileOpen
 import androidx.compose.material.icons.filled.FilterAlt
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import com.lelesoftware.app.model.CameraPreset
 import com.lelesoftware.app.model.DetectedAnomaly
 import com.lelesoftware.app.model.PaletteType
@@ -90,6 +101,7 @@ import com.lelesoftware.app.model.ViewMode
 import com.lelesoftware.app.ui.components.AnalysisDialog
 import com.lelesoftware.app.ui.components.AnomalyDetailBottomSheet
 import com.lelesoftware.app.ui.components.BottomControlsBar
+import com.lelesoftware.app.ui.components.CsvDeepAnalysisDialog
 import com.lelesoftware.app.ui.components.DevelopmentPlanScreen
 import com.lelesoftware.app.ui.components.DspMineralControlPanel
 import com.lelesoftware.app.ui.components.LiveScannerScreen
@@ -100,6 +112,7 @@ import com.lelesoftware.app.ui.components.SplashScreen
 import com.lelesoftware.app.ui.components.ThreeDimensionalVisualizer
 import com.lelesoftware.app.ui.components.TwoDimensionalView
 import com.lelesoftware.app.ui.theme.LeleSoftwareTheme
+import com.lelesoftware.app.util.CsvSurveyAnalyzer
 import com.lelesoftware.app.util.ScanGenerators
 import kotlinx.coroutines.launch
 
@@ -160,27 +173,58 @@ fun LeleSoftwareApp(
         activeTab = "3d"
     }
 
-    // Active Grid & Anomalies
-    var currentGrid by remember { mutableStateOf(ScanGenerators.generateAntikMezarOdasi()) }
-    val anomalies = remember(currentGrid) { ScanGenerators.detectAnomalies(currentGrid) }
-
-    // 3D Parameters
-    var palette by remember { mutableStateOf(PaletteType.LELE_SPECTRUM) }
-    var viewMode by remember { mutableStateOf(ViewMode.SURFACE) }
-    var depthCutMeters by remember { mutableFloatStateOf(7.5f) }
-    var thresholdFilter by remember { mutableFloatStateOf(15f) }
-    var wireframe by remember { mutableStateOf(false) }
-    var cameraPreset by remember { mutableStateOf(CameraPreset.ISO) }
-    var selectedAnomalyId by remember { mutableStateOf<String?>(null) }
-    var isControlsCollapsed by remember { mutableStateOf(false) }
-
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val repository = remember { AnomalyRepository.getInstance(context) }
     val savedAnomalies by repository.allAnomalies.collectAsState(initial = emptyList())
 
+    // Preload bundled field CSV scans (beyaz_ciflik.csv & ekim.csv)
+    val beyazCiflikGrid = remember {
+        CsvSurveyAnalyzer.loadAssetCsv(
+            context = context,
+            assetFileName = "beyaz_ciflik.csv",
+            id = "csv-beyaz-ciflik",
+            displayTitle = "Beyaz Çiftlik Saha Taraması (CSV)",
+            locationName = "Beyaz Çiftlik (48×11 • 320×300)"
+        )
+    }
+    val ekimGrid = remember {
+        CsvSurveyAnalyzer.loadAssetCsv(
+            context = context,
+            assetFileName = "ekim.csv",
+            id = "csv-ekim",
+            displayTitle = "Ekim Saha Taraması (CSV)",
+            locationName = "Ekim Sahası (48×16 • 320×300)"
+        )
+    }
+
+    // Active Grid & Anomalies
+    var currentGrid by remember {
+        mutableStateOf(beyazCiflikGrid ?: ScanGenerators.generateAntikMezarOdasi())
+    }
+    val anomalies = remember(currentGrid) {
+        if (currentGrid.isCsvImport) {
+            CsvSurveyAnalyzer.detectCsvAnomalies(currentGrid)
+        } else {
+            ScanGenerators.detectAnomalies(currentGrid)
+        }
+    }
+
+    // 3D Parameters
+    var palette by remember { mutableStateOf(PaletteType.LELE_SPECTRUM) }
+    var viewMode by remember { mutableStateOf(ViewMode.SURFACE) }
+    var depthCutMeters by remember { mutableFloatStateOf(7.5f) }
+    var thresholdFilter by remember {
+        mutableFloatStateOf(if (currentGrid.isCsvImport) 0f else 15f)
+    }
+    var wireframe by remember { mutableStateOf(false) }
+    var cameraPreset by remember { mutableStateOf(CameraPreset.ISO) }
+    var selectedAnomalyId by remember { mutableStateOf<String?>(null) }
+    var isControlsCollapsed by remember { mutableStateOf(false) }
+
     // Modals & Menus
     var isAnalysisOpen by remember { mutableStateOf(false) }
+    var isCsvDeepAnalysisOpen by remember { mutableStateOf(false) }
     var isPresetsMenuOpen by remember { mutableStateOf(false) }
     var isCompassOpen by remember { mutableStateOf(false) }
     var isD3ChartOpen by remember { mutableStateOf(false) }
@@ -191,12 +235,41 @@ fun LeleSoftwareApp(
     var sheetGridY by remember { mutableStateOf(0) }
     var isDspFilterOpen by remember { mutableStateOf(false) }
 
-    fun loadPreset(key: String) {
+    fun selectScanGrid(grid: ScanGrid) {
         selectedAnomalyId = null
-        currentGrid = when (key) {
-            "gold" -> ScanGenerators.generateAltinKupu()
-            "tunel" -> ScanGenerators.generateTunelVeMagara()
-            else -> ScanGenerators.generateAntikMezarOdasi()
+        currentGrid = grid
+        thresholdFilter = if (grid.isCsvImport) 0f else 15f
+    }
+
+    val csvPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            var resolvedName = "harici_tarama.csv"
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                if (nameIndex >= 0 && cursor.moveToFirst()) {
+                    resolvedName = cursor.getString(nameIndex) ?: resolvedName
+                }
+            }
+            val parsed = CsvSurveyAnalyzer.loadUriCsv(context, uri, resolvedName)
+            if (parsed != null) {
+                selectScanGrid(parsed)
+                isCsvDeepAnalysisOpen = true
+                Toast.makeText(context, "${parsed.title} yüklendi (${parsed.width}×${parsed.height})", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(context, "CSV formatı okunamadı (X, Y, Z, Value beklenir)", Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    fun loadPreset(key: String) {
+        when (key) {
+            "csv_beyaz_ciflik" -> beyazCiflikGrid?.let { selectScanGrid(it) }
+            "csv_ekim" -> ekimGrid?.let { selectScanGrid(it) }
+            "gold" -> selectScanGrid(ScanGenerators.generateAltinKupu())
+            "tunel" -> selectScanGrid(ScanGenerators.generateTunelVeMagara())
+            else -> selectScanGrid(ScanGenerators.generateAntikMezarOdasi())
         }
     }
 
@@ -334,6 +407,35 @@ fun LeleSoftwareApp(
                             onDismissRequest = { isPresetsMenuOpen = false },
                             modifier = Modifier.background(Color(0xFF0F172A))
                         ) {
+                            if (beyazCiflikGrid != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Beyaz Çiftlik (CSV • 48×11)", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold) },
+                                    onClick = {
+                                        loadPreset("csv_beyaz_ciflik")
+                                        isPresetsMenuOpen = false
+                                    }
+                                )
+                            }
+                            if (ekimGrid != null) {
+                                DropdownMenuItem(
+                                    text = { Text("Ekim Sahası (CSV • 48×16)", color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold) },
+                                    onClick = {
+                                        loadPreset("csv_ekim")
+                                        isPresetsMenuOpen = false
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Cihazdan CSV Dosyası Aç...", color = Color(0xFF10B981), fontWeight = FontWeight.SemiBold) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.FileOpen, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                                },
+                                onClick = {
+                                    isPresetsMenuOpen = false
+                                    csvPickerLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*"))
+                                }
+                            )
+                            HorizontalDivider(color = Color(0xFF1E293B))
                             DropdownMenuItem(
                                 text = { Text("Lahit & Mezar Odası", color = Color.White) },
                                 onClick = {
@@ -398,7 +500,13 @@ fun LeleSoftwareApp(
 
                     // Analysis Report Modal
                     IconButton(
-                        onClick = { isAnalysisOpen = true },
+                        onClick = {
+                            if (currentGrid.isCsvImport) {
+                                isCsvDeepAnalysisOpen = true
+                            } else {
+                                isAnalysisOpen = true
+                            }
+                        },
                         modifier = Modifier.testTag("analysis_button")
                     ) {
                         Icon(Icons.Default.Assessment, contentDescription = "Rapor", tint = Color(0xFF38BDF8))
@@ -482,144 +590,182 @@ fun LeleSoftwareApp(
             }
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .background(Color(0xFF020617))
         ) {
-            when (activeTab) {
-                "3d" -> {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        ThreeDimensionalVisualizer(
+            if (activeTab == "3d" || activeTab == "2d") {
+                CsvSurveyQuickBar(
+                    activeGrid = currentGrid,
+                    beyazCiflikGrid = beyazCiflikGrid,
+                    ekimGrid = ekimGrid,
+                    onSelectGrid = { selectScanGrid(it) },
+                    onOpenDeepReport = { isCsvDeepAnalysisOpen = true },
+                    onOpenExternalCsv = {
+                        csvPickerLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*"))
+                    }
+                )
+            }
+
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when (activeTab) {
+                    "3d" -> {
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            ThreeDimensionalVisualizer(
+                                grid = currentGrid,
+                                palette = palette,
+                                viewMode = viewMode,
+                                depthCutMeters = depthCutMeters,
+                                thresholdFilter = thresholdFilter,
+                                wireframe = wireframe,
+                                selectedAnomalyId = selectedAnomalyId,
+                                onSelectAnomaly = { selectedAnomalyId = it?.id },
+                                anomalies = anomalies,
+                                cameraPreset = cameraPreset,
+                                onOpenAnomalyDetail = { anom ->
+                                    sheetAnomaly = anom
+                                    sheetGridX = anom.gridX
+                                    sheetGridY = anom.gridY
+                                    isDetailSheetOpen = true
+                                }
+                            )
+
+                            // D3 Chart Component Floating on Main 3D Dashboard
+                            Column(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.End
+                            ) {
+                                Surface(
+                                    modifier = Modifier
+                                        .clickable { isD3ChartOpen = !isD3ChartOpen }
+                                        .testTag("toggle_d3_chart_button"),
+                                    shape = RoundedCornerShape(20.dp),
+                                    color = if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xCC0F172A),
+                                    border = BorderStroke(1.dp, if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xFF334155))
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Timeline,
+                                            contentDescription = null,
+                                            tint = if (isD3ChartOpen) Color.Black else Color(0xFF00E5FF),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = if (isD3ChartOpen) "D3 Grafiği Gizle" else "D3 Toprak Yoğunluğu & Derinlik",
+                                            color = if (isD3ChartOpen) Color.Black else Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                }
+
+                                if (isD3ChartOpen) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Box(modifier = Modifier.widthIn(max = 380.dp)) {
+                                        SoilDensityDepthChart(
+                                            anomalies = anomalies,
+                                            currentDepth = (selectedAnomalyId?.let { id -> anomalies.find { it.id == id }?.depthMeters } ?: 3.2f),
+                                            currentDensity = 1.95f,
+                                            onSaveToDatabase = { anomaly ->
+                                                coroutineScope.launch {
+                                                    repository.saveAnomaly(
+                                                        anomaly = anomaly,
+                                                        scanId = currentGrid.id,
+                                                        locationName = currentGrid.locationName
+                                                    )
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Bottom Docked Controls
+                            BottomControlsBar(
+                                palette = palette,
+                                onSelectPalette = { palette = it },
+                                viewMode = viewMode,
+                                onSelectViewMode = { viewMode = it },
+                                depthCutMeters = depthCutMeters,
+                                onChangeDepthCut = { depthCutMeters = it },
+                                thresholdFilter = thresholdFilter,
+                                onChangeThreshold = { thresholdFilter = it },
+                                wireframe = wireframe,
+                                onToggleWireframe = { wireframe = !wireframe },
+                                cameraPreset = cameraPreset,
+                                onSelectCamera = { cameraPreset = it },
+                                isCollapsed = isControlsCollapsed,
+                                onToggleCollapse = { isControlsCollapsed = !isControlsCollapsed },
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                            )
+                        }
+                    }
+
+                    "2d" -> {
+                        TwoDimensionalView(
                             grid = currentGrid,
                             palette = palette,
-                            viewMode = viewMode,
-                            depthCutMeters = depthCutMeters,
-                            thresholdFilter = thresholdFilter,
-                            wireframe = wireframe,
+                            anomalies = anomalies,
                             selectedAnomalyId = selectedAnomalyId,
                             onSelectAnomaly = { selectedAnomalyId = it?.id },
-                            anomalies = anomalies,
-                            cameraPreset = cameraPreset,
-                            onOpenAnomalyDetail = { anom ->
-                                sheetAnomaly = anom
-                                sheetGridX = anom.gridX
-                                sheetGridY = anom.gridY
+                            onOpenAnomalyDetail = { x, y ->
+                                val match = anomalies.find { it.gridX == x && it.gridY == y }
+                                sheetAnomaly = match
+                                sheetGridX = x
+                                sheetGridY = y
                                 isDetailSheetOpen = true
                             }
                         )
+                    }
 
-                        // D3 Chart Component Floating on Main 3D Dashboard
-                        Column(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(12.dp),
-                            horizontalAlignment = Alignment.End
-                        ) {
-                            Surface(
-                                modifier = Modifier
-                                    .clickable { isD3ChartOpen = !isD3ChartOpen }
-                                    .testTag("toggle_d3_chart_button"),
-                                shape = RoundedCornerShape(20.dp),
-                                color = if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xCC0F172A),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xFF334155))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.Timeline,
-                                        contentDescription = null,
-                                        tint = if (isD3ChartOpen) Color.Black else Color(0xFF00E5FF),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = if (isD3ChartOpen) "D3 Grafiği Gizle" else "D3 Toprak Yoğunluğu & Derinlik",
-                                        color = if (isD3ChartOpen) Color.Black else Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp
-                                    )
-                                }
+                    "live" -> {
+                        LiveScannerScreen(
+                            onScanCompleted = { newGrid ->
+                                selectScanGrid(newGrid)
+                                activeTab = "3d"
                             }
-
-                            if (isD3ChartOpen) {
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Box(modifier = Modifier.widthIn(max = 380.dp)) {
-                                    SoilDensityDepthChart(
-                                        anomalies = anomalies,
-                                        currentDepth = (selectedAnomalyId?.let { id -> anomalies.find { it.id == id }?.depthMeters } ?: 3.2f),
-                                        currentDensity = 1.95f,
-                                        onSaveToDatabase = { anomaly ->
-                                            coroutineScope.launch {
-                                                repository.saveAnomaly(
-                                                    anomaly = anomaly,
-                                                    scanId = currentGrid.id,
-                                                    locationName = currentGrid.locationName
-                                                )
-                                            }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-
-                        // Bottom Docked Controls
-                        BottomControlsBar(
-                            palette = palette,
-                            onSelectPalette = { palette = it },
-                            viewMode = viewMode,
-                            onSelectViewMode = { viewMode = it },
-                            depthCutMeters = depthCutMeters,
-                            onChangeDepthCut = { depthCutMeters = it },
-                            thresholdFilter = thresholdFilter,
-                            onChangeThreshold = { thresholdFilter = it },
-                            wireframe = wireframe,
-                            onToggleWireframe = { wireframe = !wireframe },
-                            cameraPreset = cameraPreset,
-                            onSelectCamera = { cameraPreset = it },
-                            isCollapsed = isControlsCollapsed,
-                            onToggleCollapse = { isControlsCollapsed = !isControlsCollapsed },
-                            modifier = Modifier.align(Alignment.BottomCenter)
                         )
                     }
-                }
 
-                "2d" -> {
-                    TwoDimensionalView(
-                        grid = currentGrid,
-                        palette = palette,
-                        anomalies = anomalies,
-                        selectedAnomalyId = selectedAnomalyId,
-                        onSelectAnomaly = { selectedAnomalyId = it?.id },
-                        onOpenAnomalyDetail = { x, y ->
-                            val match = anomalies.find { it.gridX == x && it.gridY == y }
-                            sheetAnomaly = match
-                            sheetGridX = x
-                            sheetGridY = y
-                            isDetailSheetOpen = true
-                        }
-                    )
-                }
-
-                "live" -> {
-                    LiveScannerScreen(
-                        onScanCompleted = { newGrid ->
-                            currentGrid = newGrid
-                            selectedAnomalyId = null
-                            activeTab = "3d"
-                        }
-                    )
-                }
-
-                "plan" -> {
-                    DevelopmentPlanScreen()
+                    "plan" -> {
+                        DevelopmentPlanScreen()
+                    }
                 }
             }
         }
     }
+
+    // Deep CSV Geophysical Analysis & Comparison Modal
+    CsvDeepAnalysisDialog(
+        isOpen = isCsvDeepAnalysisOpen,
+        onClose = { isCsvDeepAnalysisOpen = false },
+        activeGrid = currentGrid,
+        anomalies = anomalies,
+        beyazCiflikGrid = beyazCiflikGrid,
+        ekimGrid = ekimGrid,
+        onSelectGrid = { selectScanGrid(it) },
+        onFocusFinding = { finding ->
+            val match = anomalies.find { it.gridX == finding.peakGridX && it.gridY == finding.peakGridY }
+            selectedAnomalyId = match?.id
+        },
+        onSaveAllToDatabase = {
+            coroutineScope.launch {
+                repository.saveAllAnomalies(
+                    anomalies = anomalies,
+                    scanId = currentGrid.id,
+                    locationName = currentGrid.locationName
+                )
+            }
+        }
+    )
 
     // Detailed Report & Export Modal with Room Database Save
     AnalysisDialog(
@@ -742,3 +888,124 @@ fun LeleSoftwareApp(
         }
     }
 }
+
+@Composable
+private fun CsvSurveyQuickBar(
+    activeGrid: ScanGrid,
+    beyazCiflikGrid: ScanGrid?,
+    ekimGrid: ScanGrid?,
+    onSelectGrid: (ScanGrid) -> Unit,
+    onOpenDeepReport: () -> Unit,
+    onOpenExternalCsv: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFF0A1120))
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (beyazCiflikGrid != null) {
+            val isSelected = activeGrid.id == beyazCiflikGrid.id
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelectGrid(beyazCiflikGrid) },
+                label = {
+                    Text(
+                        text = "Beyaz Çiftlik (48×11)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFF00E5FF),
+                    selectedLabelColor = Color.Black,
+                    containerColor = Color(0xFF1E293B),
+                    labelColor = Color(0xFFE2E8F0)
+                ),
+                modifier = Modifier.testTag("csv_chip_beyaz_ciflik")
+            )
+        }
+
+        if (ekimGrid != null) {
+            val isSelected = activeGrid.id == ekimGrid.id
+            FilterChip(
+                selected = isSelected,
+                onClick = { onSelectGrid(ekimGrid) },
+                label = {
+                    Text(
+                        text = "Ekim (48×16)",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = Color(0xFFF59E0B),
+                    selectedLabelColor = Color.Black,
+                    containerColor = Color(0xFF1E293B),
+                    labelColor = Color(0xFFE2E8F0)
+                ),
+                modifier = Modifier.testTag("csv_chip_ekim")
+            )
+        }
+
+        Surface(
+            modifier = Modifier
+                .clickable { onOpenDeepReport() }
+                .testTag("csv_deep_report_chip"),
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF10B981).copy(alpha = 0.16f),
+            border = BorderStroke(1.dp, Color(0xFF10B981))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Analytics,
+                    contentDescription = null,
+                    tint = Color(0xFF10B981),
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = "Derin Analiz & Rapor",
+                    color = Color(0xFF34D399),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Surface(
+            modifier = Modifier
+                .clickable { onOpenExternalCsv() }
+                .testTag("csv_open_external_chip"),
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF1E293B),
+            border = BorderStroke(1.dp, Color(0xFF38BDF8))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.FileOpen,
+                    contentDescription = null,
+                    tint = Color(0xFF38BDF8),
+                    modifier = Modifier.size(15.dp)
+                )
+                Text(
+                    text = "+ CSV Aç",
+                    color = Color(0xFF38BDF8),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
