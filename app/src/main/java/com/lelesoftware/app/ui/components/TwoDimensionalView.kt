@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +25,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.CompassCalibration
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Button
@@ -35,6 +38,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,6 +67,8 @@ import com.lelesoftware.app.model.SoilType
 import com.lelesoftware.app.model.TargetClassification
 import com.lelesoftware.app.util.AudioSynthesizer
 import com.lelesoftware.app.util.ColorScales
+import com.lelesoftware.app.util.ExportFileFormat
+import com.lelesoftware.app.util.GridExportConfig
 import com.lelesoftware.app.util.SignalDepthCalculator
 import java.util.Locale
 import kotlin.math.abs
@@ -80,6 +86,7 @@ fun TwoDimensionalView(
 ) {
     var smoothInterpolation by remember { mutableStateOf(true) }
     var showValues by remember { mutableStateOf(false) }
+    var exportDialogFormat by remember { mutableStateOf<ExportFileFormat?>(null) }
     var sliceAxis by remember { mutableStateOf("X") }
     var selectedCell by remember(grid) {
         mutableStateOf(
@@ -169,6 +176,41 @@ fun TwoDimensionalView(
                     },
                     anomalies = anomalies
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = { exportDialogFormat = ExportFileFormat.PDF },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("twod_export_pdf_button"),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.75f))
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("PDF Rapor", color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+                    }
+
+                    OutlinedButton(
+                        onClick = { exportDialogFormat = ExportFileFormat.PNG },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("twod_export_png_button"),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.75f))
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("PNG Görsel", color = Color(0xFF10B981), fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+                    }
+                }
             }
         }
 
@@ -222,7 +264,7 @@ fun TwoDimensionalView(
                     Column {
                         Text("Manyetik Sinyal", color = Color(0xFF94A3B8), fontSize = 11.sp)
                         Text(
-                            text = "${selectedPoint.filteredSignal.format(1)} % (${selectedPoint.rawSignal} nT)",
+                            text = "%${selectedPoint.filteredSignal.format(1)} (${selectedPoint.rawSignal} nT)",
                             color = if (selectedPoint.filteredSignal > 0) Color(0xFFF59E0B) else Color(0xFF38BDF8),
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
@@ -319,8 +361,10 @@ fun TwoDimensionalView(
                         fontWeight = FontWeight.SemiBold
                     )
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         SoilType.entries.forEach { soil ->
                             FilterChip(
@@ -329,10 +373,10 @@ fun TwoDimensionalView(
                                 label = {
                                     Text(
                                         text = "${soil.label.split("/")[0].trim()} (${soil.attenuationFactor}x)",
-                                        fontSize = 10.sp
+                                        fontSize = 11.sp,
+                                        maxLines = 1
                                     )
-                                },
-                                modifier = Modifier.weight(1f)
+                                }
                             )
                         }
                     }
@@ -520,7 +564,7 @@ fun TwoDimensionalView(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(100.dp)
+                        .height(118.dp)
                         .clip(RoundedCornerShape(10.dp))
                         .background(Color(0xFF030712))
                         .border(1.dp, Color(0xFF1E293B), RoundedCornerShape(10.dp))
@@ -601,12 +645,12 @@ fun TwoDimensionalView(
                     lineHeight = 14.sp
                 )
 
-                // Faz 2 BottomSheet Açma Butonu
+                // Faz 2 Detay Analiz Panelini Aç
                 Button(
                     onClick = { onOpenAnomalyDetail?.invoke(selectedCell.first, selectedCell.second) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(44.dp)
+                        .height(48.dp)
                         .testTag("open_bottomsheet_from_2d_button"),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
                     shape = RoundedCornerShape(10.dp)
@@ -614,7 +658,7 @@ fun TwoDimensionalView(
                     Icon(Icons.Default.Analytics, contentDescription = null, tint = Color.Black)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "FWHM & Hacim Inversion Analiz Paneli (BottomSheet)",
+                        "Derinlik & Hacim İnversiyon Analizi",
                         color = Color.Black,
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp
@@ -659,7 +703,7 @@ fun TwoDimensionalView(
             ) {
                 Row(
                     modifier = Modifier.padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
@@ -697,6 +741,22 @@ fun TwoDimensionalView(
                 }
             }
         }
+    }
+
+    exportDialogFormat?.let { fmt ->
+        ScanExportDialog(
+            isOpen = true,
+            initialFormat = fmt,
+            grid = grid,
+            anomalies = anomalies,
+            config = GridExportConfig(
+                palette = palette,
+                smoothGrid = smoothInterpolation,
+                showCellValues = showValues,
+                selectedCell = Pair(safeX, safeY)
+            ),
+            onDismiss = { exportDialogFormat = null }
+        )
     }
 }
 

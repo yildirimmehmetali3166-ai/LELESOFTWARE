@@ -18,14 +18,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -175,62 +178,61 @@ fun LoginScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color(0xFF02040A),
-                        Color(0xFF0B0F19),
-                        Color(0xFF030712)
+                        Color(0xFF050914),
+                        Color(0xFF0B1221),
+                        Color(0xFF050914)
                     )
                 )
             )
+            .windowInsetsPadding(WindowInsets.safeDrawing)
             .imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 28.dp),
+                .padding(horizontal = 24.dp, vertical = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            // 1. LELE SOFTWARE LOGO & BRAND HERO
+            // 1. LELE SOFTWARE MEDALLION EMBLEM & BRAND HERO
             Box(
                 modifier = Modifier
-                    .size(108.dp)
+                    .size(124.dp)
+                    .shadow(elevation = 18.dp, shape = CircleShape, spotColor = Color(0xFFF59E0B).copy(alpha = 0.45f))
                     .clip(CircleShape)
-                    .background(Color.Black)
+                    .background(Color(0xFF090F1D))
                     .border(
-                        width = 2.dp,
+                        width = 1.5.dp,
                         brush = Brush.linearGradient(
                             listOf(
-                                Color(0xFF00E5FF).copy(alpha = pulseGlow),
+                                Color(0xFFE2C799).copy(alpha = pulseGlow),
                                 Color(0xFFF59E0B),
-                                Color(0xFF00E5FF).copy(alpha = pulseGlow)
+                                Color(0xFF22D3EE).copy(alpha = pulseGlow)
                             )
                         ),
                         shape = CircleShape
                     )
-                    .shadow(elevation = 16.dp, shape = CircleShape),
+                    .padding(8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Image(
                     painter = painterResource(id = R.drawable.logo_lele_software),
-                    contentDescription = "LELE SOFTWARE Şirket Logosu",
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(2.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop
+                    contentDescription = "LELE SOFTWARE Kurumsal Logosu",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
                 )
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Brand Title & Tagline
             Text(
                 text = "LELE SOFTWARE",
                 style = androidx.compose.material3.MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Black,
+                    fontWeight = FontWeight.Bold,
                     letterSpacing = 2.5.sp
                 ),
                 color = Color.White
@@ -249,22 +251,22 @@ fun LoginScreen(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "3D & 2D YERALTI GÖRÜNTÜLEME SİSTEMLERİ",
+                    text = "3D & 2D YERALTI GÖRÜNTÜLEME",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF00E5FF),
+                    color = Color(0xFF22D3EE),
                     letterSpacing = 1.sp
                 )
             }
 
             Text(
-                text = "Jeofizik Mühendislik & Manyetik Tarama Arayüzü",
+                text = "Kurumsal Jeofizik Mühendislik Platformu",
                 fontSize = 11.sp,
                 color = Color(0xFF94A3B8),
                 modifier = Modifier.padding(top = 2.dp)
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(22.dp))
 
             // 2. MAIN AUTHENTICATION CARD
             Card(
@@ -817,20 +819,20 @@ fun LoginScreen(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Donanım Şifreli İletişim • v1.0.0 Pro Suite",
+                    text = "Donanım Şifreli İletişim • Kurumsal Suite v4.0",
                     color = Color(0xFF64748B),
                     fontSize = 11.sp
                 )
             }
 
             Text(
-                text = "© 2026 LELE SOFTWARE - Tüm Hakları Saklıdır",
+                text = "© 2026 LELE SOFTWARE • Tüm Hakları Saklıdır",
                 color = Color(0xFF475569),
                 fontSize = 10.sp,
                 modifier = Modifier.padding(top = 4.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }

@@ -26,6 +26,8 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CompareArrows
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.Button
@@ -65,7 +67,10 @@ import com.lelesoftware.app.model.CsvBandSummary
 import com.lelesoftware.app.model.CsvClusterFinding
 import com.lelesoftware.app.model.CsvDeepAnalysisReport
 import com.lelesoftware.app.model.DetectedAnomaly
+import com.lelesoftware.app.model.PaletteType
 import com.lelesoftware.app.model.ScanGrid
+import com.lelesoftware.app.util.ExportFileFormat
+import com.lelesoftware.app.util.GridExportConfig
 import com.lelesoftware.app.util.ReportExporter
 import java.util.Locale
 import kotlin.math.abs
@@ -81,12 +86,14 @@ fun CsvDeepAnalysisDialog(
     ekimGrid: ScanGrid?,
     onSelectGrid: (ScanGrid) -> Unit,
     onFocusFinding: (CsvClusterFinding) -> Unit,
+    palette: PaletteType = PaletteType.LELE_SPECTRUM,
     onSaveAllToDatabase: (() -> Unit)? = null
 ) {
     if (!isOpen) return
 
     val context = LocalContext.current
     var selectedTab by remember(activeGrid.id) { mutableIntStateOf(0) } // 0 = Active Analysis, 1 = Comparison
+    var exportDialogFormat by remember { mutableStateOf<ExportFileFormat?>(null) }
     val report = activeGrid.csvReport
 
     Dialog(
@@ -160,7 +167,7 @@ fun CsvDeepAnalysisDialog(
                     FilterChip(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        label = { Text("Aktif Dosya Derin Analizi", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Aktif Analiz", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
                         modifier = Modifier.weight(1f).testTag("csv_tab_active"),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF00E5FF),
@@ -173,7 +180,7 @@ fun CsvDeepAnalysisDialog(
                         leadingIcon = {
                             Icon(Icons.Default.CompareArrows, contentDescription = null, modifier = Modifier.size(16.dp))
                         },
-                        label = { Text("Beyaz Çiftlik vs Ekim", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                        label = { Text("Karşılaştırma", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
                         modifier = Modifier.weight(1f).testTag("csv_tab_compare"),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFFF59E0B),
@@ -219,10 +226,11 @@ fun CsvDeepAnalysisDialog(
                                 Icon(Icons.Default.Storage, contentDescription = null, tint = Color.Black, modifier = Modifier.size(18.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isSaved) "CSV Anomalileri SQLite Veritabanına Kaydedildi" else "Tüm Bulguları SQLite Veritabanına Kaydet",
+                                    text = if (isSaved) "Bulgular Veritabanına Kaydedildi" else "Tüm Bulguları Veritabanına Kaydet",
                                     color = Color.Black,
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
+                                    fontSize = 13.sp,
+                                    maxLines = 1
                                 )
                             }
                         }
@@ -232,17 +240,44 @@ fun CsvDeepAnalysisDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             Button(
+                                onClick = { exportDialogFormat = ExportFileFormat.PDF },
+                                modifier = Modifier.weight(1f).height(48.dp).testTag("csv_export_pdf_button"),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("PDF Rapor", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+                            }
+
+                            OutlinedButton(
+                                onClick = { exportDialogFormat = ExportFileFormat.PNG },
+                                modifier = Modifier.weight(1f).height(48.dp).testTag("csv_export_png_button"),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFF10B981))
+                            ) {
+                                Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("PNG Görsel", color = Color(0xFF10B981), fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedButton(
                                 onClick = {
                                     val csv = ReportExporter.generateCSV(activeGrid, anomalies)
                                     ReportExporter.shareReport(context, csv, "${activeGrid.id}_derin_analiz.csv")
                                 },
                                 modifier = Modifier.weight(1f).height(48.dp).testTag("csv_export_share_button"),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
-                                shape = RoundedCornerShape(10.dp)
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.7f))
                             ) {
-                                Icon(Icons.Default.Share, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                                Icon(Icons.Default.Share, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("CSV Raporu Paylaş", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text("CSV Paylaş", color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
                             }
 
                             OutlinedButton(
@@ -256,7 +291,7 @@ fun CsvDeepAnalysisDialog(
                             ) {
                                 Icon(Icons.Default.FileDownload, contentDescription = null, tint = Color(0xFF38BDF8), modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text("JSON Dışa Aktar", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text("JSON Aktar", color = Color(0xFF38BDF8), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
                             }
                         }
                     } else if (selectedTab == 0) {
@@ -279,6 +314,17 @@ fun CsvDeepAnalysisDialog(
                 }
             }
         }
+    }
+
+    exportDialogFormat?.let { fmt ->
+        ScanExportDialog(
+            isOpen = true,
+            initialFormat = fmt,
+            grid = activeGrid,
+            anomalies = anomalies,
+            config = GridExportConfig(palette = palette, smoothGrid = true),
+            onDismiss = { exportDialogFormat = null }
+        )
     }
 }
 
@@ -483,13 +529,14 @@ private fun ActiveCsvReportContent(
                 )
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "X: ${finding.xRange} • Y: ${finding.yRange} (${finding.cellCount} hücre)",
                         color = Color(0xFF64748B),
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        modifier = Modifier.weight(1f)
                     )
                     OutlinedButton(
                         onClick = { onFocusFinding(finding) },
@@ -674,7 +721,8 @@ private fun CsvComparisonContent(
                         text = if (activeGridId == beyazCiflikGrid.id) "Beyaz Çiftlik Aktif" else "Beyaz Çiftlik'i Aç",
                         color = Color.Black,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
+                        fontSize = 11.sp,
+                        maxLines = 1
                     )
                 }
                 Button(
@@ -686,10 +734,11 @@ private fun CsvComparisonContent(
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
-                        text = if (activeGridId == ekimGrid.id) "Ekim'i Aç (Aktif)" else "Ekim'i Aç",
+                        text = if (activeGridId == ekimGrid.id) "Ekim Aktif" else "Ekim'i Aç",
                         color = Color.Black,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
+                        fontSize = 11.sp,
+                        maxLines = 1
                     )
                 }
             }

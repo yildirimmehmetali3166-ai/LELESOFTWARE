@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -145,10 +146,14 @@ fun MagneticSurveyCompass(
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Icon(
                         Icons.Default.Explore,
                         contentDescription = null,
@@ -163,7 +168,7 @@ fun MagneticSurveyCompass(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Jeofizik Doğru Yürüyüş Aksı Kılavuzu (K-G Meridyeni)",
+                            text = "Jeofizik Yürüyüş Aksı Kılavuzu (K-G Meridyeni)",
                             color = Color(0xFF94A3B8),
                             fontSize = 10.sp
                         )
@@ -198,189 +203,47 @@ fun MagneticSurveyCompass(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Main Compass Gauge & HUD
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Circular Canvas Compass Rose
-                Box(
-                    modifier = Modifier
-                        .size(165.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF030712))
-                        .border(2.dp, statusColor.copy(alpha = 0.8f), CircleShape)
-                        .shadow(16.dp, CircleShape, spotColor = statusColor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
-                        val center = Offset(size.width / 2f, size.height / 2f)
-                        val radius = size.width / 2f
-
-                        // Outer rim
-                        drawCircle(
-                            color = Color(0x3338BDF8),
-                            radius = radius,
-                            center = center,
-                            style = Stroke(width = 1.5f)
-                        )
-
-                        // Optimal survey corridor green arcs (North 353°..7° and South 173°..187°)
-                        val corridorAngleSpan = 14f
-                        // We draw static green tick corridors at top and bottom
-                        drawArc(
-                            color = Color(0x4010B981),
-                            startAngle = 270f - corridorAngleSpan / 2f,
-                            sweepAngle = corridorAngleSpan,
-                            useCenter = true,
-                            topLeft = Offset(center.x - radius, center.y - radius),
-                            size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
-                        )
-                        drawArc(
-                            color = Color(0x4010B981),
-                            startAngle = 90f - corridorAngleSpan / 2f,
-                            sweepAngle = corridorAngleSpan,
-                            useCenter = true,
-                            topLeft = Offset(center.x - radius, center.y - radius),
-                            size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
-                        )
-
-                        // Rotating Dial (Compass Rose rotates counter to heading)
-                        rotate(-smoothHeading, pivot = center) {
-                            // Tick marks every 30 degrees
-                            for (deg in 0 until 360 step 15) {
-                                val rad = (deg * PI / 180f).toFloat()
-                                val isMajor = deg % 90 == 0
-                                val isSub = deg % 30 == 0
-                                val tickLen = if (isMajor) 14f else if (isSub) 9f else 5f
-                                val strokeW = if (isMajor) 2f else 1f
-
-                                val startX = center.x + sin(rad) * (radius - tickLen)
-                                val startY = center.y - cos(rad) * (radius - tickLen)
-                                val endX = center.x + sin(rad) * radius
-                                val endY = center.y - cos(rad) * radius
-
-                                val tickColor = if (deg == 0) Color(0xFFF43F5E) else if (deg == 180) Color(0xFF38BDF8) else Color(0x6694A3B8)
-                                drawLine(tickColor, Offset(startX, startY), Offset(endX, endY), strokeWidth = strokeW)
-                            }
-
-                            // North-South Target Crosshair
-                            drawLine(
-                                color = Color(0x3038BDF8),
-                                start = Offset(center.x, center.y - radius),
-                                end = Offset(center.x, center.y + radius),
-                                strokeWidth = 1f
-                            )
-                            drawLine(
-                                color = Color(0x3038BDF8),
-                                start = Offset(center.x - radius, center.y),
-                                end = Offset(center.x + radius, center.y),
-                                strokeWidth = 1f
-                            )
-
-                            // 3D Magnetic Needle (North Pointing - Red Arrow, South Pointing - Blue Arrow)
-                            val needleLength = radius * 0.72f
-                            val needleWidth = 10f
-
-                            // North Half (Red/Amber)
-                            val northPath = Path().apply {
-                                moveTo(center.x, center.y - needleLength)
-                                lineTo(center.x - needleWidth, center.y)
-                                lineTo(center.x, center.y - 4f)
-                                close()
-                            }
-                            drawPath(northPath, brush = Brush.verticalGradient(listOf(Color(0xFFF43F5E), Color(0xFFE11D48))))
-
-                            val northPathRight = Path().apply {
-                                moveTo(center.x, center.y - needleLength)
-                                lineTo(center.x + needleWidth, center.y)
-                                lineTo(center.x, center.y - 4f)
-                                close()
-                            }
-                            drawPath(northPathRight, brush = Brush.verticalGradient(listOf(Color(0xFFFB7185), Color(0xFFF43F5E))))
-
-                            // South Half (Blue/Cyan)
-                            val southPath = Path().apply {
-                                moveTo(center.x, center.y + needleLength)
-                                lineTo(center.x - needleWidth, center.y)
-                                lineTo(center.x, center.y + 4f)
-                                close()
-                            }
-                            drawPath(southPath, brush = Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF0369A1))))
-
-                            val southPathRight = Path().apply {
-                                moveTo(center.x, center.y + needleLength)
-                                lineTo(center.x + needleWidth, center.y)
-                                lineTo(center.x, center.y + 4f)
-                                close()
-                            }
-                            drawPath(southPathRight, brush = Brush.verticalGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7))))
-                        }
-
-                        // Center Pivot Pin
-                        drawCircle(Color(0xFF0F172A), radius = 9f, center = center)
-                        drawCircle(Color(0xFFF59E0B), radius = 5f, center = center)
-                    }
-
-                    // Digital Heading Overlay Center-Bottom
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xD90F172A),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 12.dp)
+            // Main Compass Gauge & HUD (Responsive)
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val isNarrow = maxWidth < 340.dp
+                if (isNarrow) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = String.format(Locale.US, "%03d° %s", smoothHeading.toInt(), getDirectionLabel(smoothHeading)),
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        CompassDialGauge(
+                            sizeDp = 152.dp,
+                            smoothHeading = smoothHeading,
+                            statusColor = statusColor
+                        )
+                        CompassTelemetryPanel(
+                            isAligned = isAligned,
+                            statusColor = statusColor,
+                            smoothHeading = smoothHeading,
+                            activeDeviation = activeDeviation,
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                }
-
-                // Heading Guidance & Earth Magnetic Fields Details
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Guidance Advice Box
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFF030712),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = if (isAligned) "K-G MERİDYEN KİLİDİ AKTİF" else "EKSENEL HİZALAMA GEREKLİ",
-                                color = statusColor,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = if (isAligned) {
-                                    "Mükemmel doğrultu. Manyetik dipol yanıtları simetrik kaydedilecek."
-                                } else {
-                                    val turnDir = if (smoothHeading in 7.0..173.0) "Sola (Kuzey'e) dönün" else "Sağa (Kuzey'e) dönün"
-                                    "Sapma: ${activeDeviation.toInt()}°. $turnDir."
-                                },
-                                color = Color(0xFFCBD5E1),
-                                fontSize = 10.sp,
-                                lineHeight = 14.sp
-                            )
-                        }
+                        CompassDialGauge(
+                            sizeDp = 140.dp,
+                            smoothHeading = smoothHeading,
+                            statusColor = statusColor
+                        )
+                        CompassTelemetryPanel(
+                            isAligned = isAligned,
+                            statusColor = statusColor,
+                            smoothHeading = smoothHeading,
+                            activeDeviation = activeDeviation,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-
-                    // Earth Magnetic Field Telemetry Metrics
-                    CompassMetricRow(label = "Manyetik Şiddet (F):", value = "48,220 nT")
-                    CompassMetricRow(label = "Manyetik Eğim (Dip):", value = "59.2° (Aşağı)")
-                    CompassMetricRow(label = "Sapma Açısı (Decl):", value = "+5.8° Doğu")
-                    CompassMetricRow(label = "Önerilen Tarama:", value = "K-G Boustrophedon")
                 }
             }
 
@@ -417,13 +280,193 @@ fun MagneticSurveyCompass(
 }
 
 @Composable
+private fun CompassDialGauge(
+    sizeDp: androidx.compose.ui.unit.Dp,
+    smoothHeading: Float,
+    statusColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .size(sizeDp)
+            .clip(CircleShape)
+            .background(Color(0xFF030712))
+            .border(2.dp, statusColor.copy(alpha = 0.8f), CircleShape)
+            .shadow(16.dp, CircleShape, spotColor = statusColor),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize().padding(8.dp)) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val radius = size.width / 2f
+
+            drawCircle(
+                color = Color(0x3338BDF8),
+                radius = radius,
+                center = center,
+                style = Stroke(width = 1.5f)
+            )
+
+            val corridorAngleSpan = 14f
+            drawArc(
+                color = Color(0x4010B981),
+                startAngle = 270f - corridorAngleSpan / 2f,
+                sweepAngle = corridorAngleSpan,
+                useCenter = true,
+                topLeft = Offset(center.x - radius, center.y - radius),
+                size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+            )
+            drawArc(
+                color = Color(0x4010B981),
+                startAngle = 90f - corridorAngleSpan / 2f,
+                sweepAngle = corridorAngleSpan,
+                useCenter = true,
+                topLeft = Offset(center.x - radius, center.y - radius),
+                size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+            )
+
+            rotate(-smoothHeading, pivot = center) {
+                for (deg in 0 until 360 step 15) {
+                    val rad = (deg * PI / 180f).toFloat()
+                    val isMajor = deg % 90 == 0
+                    val isSub = deg % 30 == 0
+                    val tickLen = if (isMajor) 14f else if (isSub) 9f else 5f
+                    val strokeW = if (isMajor) 2f else 1f
+
+                    val startX = center.x + sin(rad) * (radius - tickLen)
+                    val startY = center.y - cos(rad) * (radius - tickLen)
+                    val endX = center.x + sin(rad) * radius
+                    val endY = center.y - cos(rad) * radius
+
+                    val tickColor = if (deg == 0) Color(0xFFF43F5E) else if (deg == 180) Color(0xFF38BDF8) else Color(0x6694A3B8)
+                    drawLine(tickColor, Offset(startX, startY), Offset(endX, endY), strokeWidth = strokeW)
+                }
+
+                drawLine(
+                    color = Color(0x3038BDF8),
+                    start = Offset(center.x, center.y - radius),
+                    end = Offset(center.x, center.y + radius),
+                    strokeWidth = 1f
+                )
+                drawLine(
+                    color = Color(0x3038BDF8),
+                    start = Offset(center.x - radius, center.y),
+                    end = Offset(center.x + radius, center.y),
+                    strokeWidth = 1f
+                )
+
+                val needleLength = radius * 0.72f
+                val needleWidth = 10f
+
+                val northPath = Path().apply {
+                    moveTo(center.x, center.y - needleLength)
+                    lineTo(center.x - needleWidth, center.y)
+                    lineTo(center.x, center.y - 4f)
+                    close()
+                }
+                drawPath(northPath, brush = Brush.verticalGradient(listOf(Color(0xFFF43F5E), Color(0xFFE11D48))))
+
+                val northPathRight = Path().apply {
+                    moveTo(center.x, center.y - needleLength)
+                    lineTo(center.x + needleWidth, center.y)
+                    lineTo(center.x, center.y - 4f)
+                    close()
+                }
+                drawPath(northPathRight, brush = Brush.verticalGradient(listOf(Color(0xFFFB7185), Color(0xFFF43F5E))))
+
+                val southPath = Path().apply {
+                    moveTo(center.x, center.y + needleLength)
+                    lineTo(center.x - needleWidth, center.y)
+                    lineTo(center.x, center.y + 4f)
+                    close()
+                }
+                drawPath(southPath, brush = Brush.verticalGradient(listOf(Color(0xFF0284C7), Color(0xFF0369A1))))
+
+                val southPathRight = Path().apply {
+                    moveTo(center.x, center.y + needleLength)
+                    lineTo(center.x + needleWidth, center.y)
+                    lineTo(center.x, center.y + 4f)
+                    close()
+                }
+                drawPath(southPathRight, brush = Brush.verticalGradient(listOf(Color(0xFF38BDF8), Color(0xFF0284C7))))
+            }
+
+            drawCircle(Color(0xFF0F172A), radius = 9f, center = center)
+            drawCircle(Color(0xFFF59E0B), radius = 5f, center = center)
+        }
+
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = Color(0xD90F172A),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF334155)),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 10.dp)
+        ) {
+            Text(
+                text = String.format(Locale.US, "%03d° %s", smoothHeading.toInt(), getDirectionLabel(smoothHeading)),
+                color = Color.White,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun CompassTelemetryPanel(
+    isAligned: Boolean,
+    statusColor: Color,
+    smoothHeading: Float,
+    activeDeviation: Float,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFF030712),
+            border = androidx.compose.foundation.BorderStroke(1.dp, statusColor.copy(alpha = 0.5f))
+        ) {
+            Column(modifier = Modifier.padding(10.dp)) {
+                Text(
+                    text = if (isAligned) "K-G MERİDYEN KİLİDİ AKTİF" else "EKSENEL HİZALAMA GEREKLİ",
+                    color = statusColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (isAligned) {
+                        "Mükemmel doğrultu. Manyetik dipol yanıtları simetrik kaydedilecek."
+                    } else {
+                        val turnDir = if (smoothHeading in 7.0..173.0) "Sola (Kuzey'e) dönün" else "Sağa (Kuzey'e) dönün"
+                        "Sapma: ${activeDeviation.toInt()}°. $turnDir."
+                    },
+                    color = Color(0xFFCBD5E1),
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp
+                )
+            }
+        }
+
+        CompassMetricRow(label = "Manyetik Şiddet (F):", value = "48,220 nT")
+        CompassMetricRow(label = "Manyetik Eğim (Dip):", value = "59.2° (Aşağı)")
+        CompassMetricRow(label = "Sapma Açısı (Decl):", value = "+5.8° Doğu")
+        CompassMetricRow(label = "Önerilen Tarama:", value = "K-G Boustrophedon")
+    }
+}
+
+@Composable
 private fun CompassMetricRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(label, color = Color(0xFF64748B), fontSize = 10.sp)
+        Text(label, color = Color(0xFF64748B), fontSize = 10.sp, modifier = Modifier.weight(1f))
         Text(value, color = Color(0xFFE2E8F0), fontWeight = FontWeight.SemiBold, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
     }
 }

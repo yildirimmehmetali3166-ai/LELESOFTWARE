@@ -105,28 +105,28 @@ fun SoilDensityDepthChart(
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // Header Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Timeline,
                         contentDescription = null,
                         tint = Color(0xFF00E5FF),
                         modifier = Modifier.size(22.dp)
                     )
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "TOPRAK YOĞUNLUĞU & DERİNLİK DAĞILIMI",
                             color = Color.White,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 13.sp,
-                            letterSpacing = 0.6.sp
+                            letterSpacing = 0.4.sp
                         )
                         Text(
-                            text = "D3 Gerçek Zamanlı Jeofizik Stratigrafi Grafiği",
+                            text = "Gerçek Zamanlı Jeofizik Stratigrafi Grafiği",
                             color = Color(0xFF38BDF8),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium
@@ -134,7 +134,7 @@ fun SoilDensityDepthChart(
                     }
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(
                         selected = chartMode == "realtime",
                         onClick = { chartMode = "realtime" },
@@ -430,13 +430,13 @@ fun SoilDensityDepthChart(
                     modifier = Modifier
                         .fillMaxWidth()
                         .align(Alignment.BottomCenter)
-                        .padding(start = 45.dp, end = 20.dp, bottom = 4.dp),
+                        .padding(start = 42.dp, end = 16.dp, bottom = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text("1.0 (Boşluk/Kum)", color = Color(0xFF94A3B8), fontSize = 10.sp)
-                    Text("1.8 (Alüvyon)", color = Color(0xFF94A3B8), fontSize = 10.sp)
-                    Text("2.5 (Kaya)", color = Color(0xFF94A3B8), fontSize = 10.sp)
-                    Text("3.2 (Metal/Dipol)", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    Text("1.0 Boşluk", color = Color(0xFF94A3B8), fontSize = 9.sp)
+                    Text("1.8 Alüvyon", color = Color(0xFF94A3B8), fontSize = 9.sp)
+                    Text("2.5 Kaya", color = Color(0xFF94A3B8), fontSize = 9.sp)
+                    Text("3.2 Metal", color = Color(0xFF94A3B8), fontSize = 9.sp)
                 }
             }
 
@@ -490,19 +490,20 @@ fun SoilDensityDepthChart(
             // Chart Footer Notes
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Y-Aksı: Derinlik (0-10m) • X-Aksı: Toprak Yoğunluğu (ρ g/cm³)",
+                    text = "Y-Ekseni: Derinlik (0-10m) • X-Ekseni: Yoğunluk (ρ g/cm³)",
                     color = Color(0xFF64748B),
-                    fontSize = 11.sp
+                    fontSize = 10.sp,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "D3 Voksel Matrisi",
+                    text = "3D Voksel Matrisi",
                     color = Color(0xFF00E5FF),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp
+                    fontSize = 10.sp
                 )
             }
         }

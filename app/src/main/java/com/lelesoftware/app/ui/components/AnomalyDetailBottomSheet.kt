@@ -3,6 +3,7 @@ package com.lelesoftware.app.ui.components
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -124,7 +125,7 @@ fun AnomalyDetailBottomSheet(
             title = "${classification.label} Hedefi",
             classification = classification,
             xMeters = gridX * grid.stepDistanceMeters,
-            yMeters = gridY * grid.stepDistanceMeters,
+            yMeters = gridY * grid.stepYMeters,
             gridX = gridX,
             gridY = gridY,
             depthMeters = depthResult.estimatedDepthMeters,
@@ -321,7 +322,7 @@ fun AnomalyDetailBottomSheet(
                         modifier = Modifier.padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text("Inversion Güveni", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                        Text("İnversiyon Güveni", color = Color(0xFF94A3B8), fontSize = 11.sp)
                         Text(
                             text = "%${depthResult.confidencePercent}",
                             color = Color(0xFF10B981),
@@ -355,7 +356,7 @@ fun AnomalyDetailBottomSheet(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             Icon(Icons.Default.Height, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
-                            Text("Sensör Yerden Yüksekliği (h_sensor)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text("Sensör Yerden Yüksekliği", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                         Text(
                             text = String.format(Locale.US, "%.2f m", sensorHeight),
@@ -366,7 +367,7 @@ fun AnomalyDetailBottomSheet(
                     }
 
                     Text(
-                        text = "Peters Half-Slope formülü: z = k·FWHM - h_sensor. Sensör probunun zemin mesafesini dengeleyerek net anomali derinliğini hassaslaştırır.",
+                        text = "Peters Half-Slope formülü: z = k·FWHM − h. Sensör probunun zemin mesafesini dengeleyerek net anomali derinliğini hassaslaştırır.",
                         color = Color(0xFF94A3B8),
                         fontSize = 11.sp
                     )
@@ -395,8 +396,10 @@ fun AnomalyDetailBottomSheet(
                     fontWeight = FontWeight.SemiBold
                 )
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     SoilType.entries.forEach { soil ->
                         FilterChip(
@@ -405,7 +408,8 @@ fun AnomalyDetailBottomSheet(
                             label = {
                                 Text(
                                     text = "${soil.label.split("/")[0].trim()} (${soil.attenuationFactor}x)",
-                                    fontSize = 10.sp
+                                    fontSize = 11.sp,
+                                    maxLines = 1
                                 )
                             },
                             colors = FilterChipDefaults.filterChipColors(
@@ -493,7 +497,7 @@ fun AnomalyDetailBottomSheet(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = if (isSavedLocally) "SQLite Veritabanına Kaydedildi" else "SQLite Veritabanına Kaydet (Çevrimdışı)",
+                    text = if (isSavedLocally) "SQLite Veritabanına Kaydedildi" else "Anomaliyi Kaydet (Çevrimdışı)",
                     color = Color.Black,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp

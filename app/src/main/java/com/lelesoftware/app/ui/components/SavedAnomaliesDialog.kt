@@ -3,6 +3,7 @@ package com.lelesoftware.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -115,10 +117,14 @@ fun SavedAnomaliesDialog(
                 // Header Bar
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Storage,
                             contentDescription = null,
@@ -127,13 +133,13 @@ fun SavedAnomaliesDialog(
                         )
                         Column {
                             Text(
-                                text = "KAYITLI ANOMALİLER (SQLite / ROOM)",
+                                text = "KAYITLI ANOMALİLER",
                                 color = Color.White,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             )
                             Text(
-                                text = "Yerel SQLite Veritabanı • Çevrimdışı İnceleme",
+                                text = "Yerel Veritabanı • Çevrimdışı İnceleme",
                                 color = Color(0xFF94A3B8),
                                 fontSize = 12.sp
                             )
@@ -164,14 +170,16 @@ fun SavedAnomaliesDialog(
 
                 // Filter Chips
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     FilterChip(
                         selected = selectedFilter == "ALL",
                         onClick = { selectedFilter = "ALL" },
-                        label = { Text("Tümü (${savedAnomalies.size})", fontSize = 11.sp) },
+                        label = { Text("Tümü (${savedAnomalies.size})", fontSize = 11.sp, maxLines = 1) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF1E293B),
                             selectedLabelColor = Color.White
@@ -180,7 +188,7 @@ fun SavedAnomaliesDialog(
                     FilterChip(
                         selected = selectedFilter == "PRECIOUS",
                         onClick = { selectedFilter = "PRECIOUS" },
-                        label = { Text("Altın/Metal", fontSize = 11.sp) },
+                        label = { Text("Altın/Metal", fontSize = 11.sp, maxLines = 1) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFFF59E0B).copy(alpha = 0.2f),
                             selectedLabelColor = Color(0xFFF59E0B)
@@ -189,7 +197,7 @@ fun SavedAnomaliesDialog(
                     FilterChip(
                         selected = selectedFilter == "VOID",
                         onClick = { selectedFilter = "VOID" },
-                        label = { Text("Boşluk/Mezar", fontSize = 11.sp) },
+                        label = { Text("Boşluk/Mezar", fontSize = 11.sp, maxLines = 1) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFF00E5FF).copy(alpha = 0.2f),
                             selectedLabelColor = Color(0xFF00E5FF)
@@ -198,7 +206,7 @@ fun SavedAnomaliesDialog(
                     FilterChip(
                         selected = selectedFilter == "FERROUS",
                         onClick = { selectedFilter = "FERROUS" },
-                        label = { Text("Demir", fontSize = 11.sp) },
+                        label = { Text("Demir", fontSize = 11.sp, maxLines = 1) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Color(0xFFEF4444).copy(alpha = 0.2f),
                             selectedLabelColor = Color(0xFFEF4444)
@@ -300,10 +308,14 @@ private fun SavedAnomalyItem(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Box(modifier = Modifier.size(10.dp).background(Color(item.colorHex), CircleShape))
                     Text(item.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 }
@@ -332,42 +344,46 @@ private fun SavedAnomalyItem(
             Spacer(modifier = Modifier.height(4.dp))
             Text(item.description, color = Color(0xFF94A3B8), fontSize = 12.sp)
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Derinlik: ${String.format(Locale.US, "%.2f", item.depthMeters)}m [±${String.format(Locale.US, "%.2f", (item.maxDepthMeters - item.minDepthMeters) / 2f)}m]",
+                    text = "Derinlik: ${String.format(Locale.US, "%.2f", item.depthMeters)}m",
                     color = Color(0xFF00E5FF),
                     fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp
+                    fontSize = 11.sp,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "Yoğunluk: ${String.format(Locale.US, "%.2f", item.soilDensityGcm3)} g/cm³",
+                    text = "ρ: ${String.format(Locale.US, "%.2f", item.soilDensityGcm3)} g/cm³",
                     color = Color(0xFF38BDF8),
                     fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
+                    fontFamily = FontFamily.Monospace,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "Konum: (${String.format(Locale.US, "%.1f", item.xMeters)}m, ${String.format(Locale.US, "%.1f", item.yMeters)}m)",
+                    text = "(${String.format(Locale.US, "%.1f", item.xMeters)}, ${String.format(Locale.US, "%.1f", item.yMeters)}) m",
                     color = Color(0xFFCBD5E1),
                     fontSize = 11.sp
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
                     text = "${item.locationName} • ${dateFormat.format(Date(item.recordedTimestamp))}",
                     color = Color(0xFF64748B),
-                    fontSize = 10.sp
+                    fontSize = 10.sp,
+                    modifier = Modifier.weight(1f)
                 )
                 Text(
-                    text = "3D Görünüme Yükle ➔",
+                    text = "3D Görünüme Yükle →",
                     color = Color(0xFFF59E0B),
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold

@@ -36,6 +36,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.ListAlt
 import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.GridOn
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Layers
@@ -103,10 +104,13 @@ import com.lelesoftware.app.ui.components.AnomalyDetailBottomSheet
 import com.lelesoftware.app.ui.components.BottomControlsBar
 import com.lelesoftware.app.ui.components.CsvDeepAnalysisDialog
 import com.lelesoftware.app.ui.components.DevelopmentPlanScreen
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lelesoftware.app.ui.components.DspMineralControlPanel
+import com.lelesoftware.app.ui.components.GeophysicalDashboardScreen
 import com.lelesoftware.app.ui.components.LiveScannerScreen
 import com.lelesoftware.app.ui.components.LoginScreen
 import com.lelesoftware.app.ui.components.SavedAnomaliesDialog
+import com.lelesoftware.app.ui.components.ScanSimulationViewModel
 import com.lelesoftware.app.ui.components.SoilDensityDepthChart
 import com.lelesoftware.app.ui.components.SplashScreen
 import com.lelesoftware.app.ui.components.ThreeDimensionalVisualizer
@@ -131,7 +135,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainAppHost() {
     var showSplash by rememberSaveable { mutableStateOf(true) }
-    var isAuthenticated by rememberSaveable { mutableStateOf(false) }
+    var isAuthenticated by rememberSaveable { mutableStateOf(true) }
     var operatorName by rememberSaveable { mutableStateOf("Baş Mühendis") }
 
     if (showSplash) {
@@ -163,14 +167,15 @@ fun MainAppHost() {
 fun LeleSoftwareApp(
     onShowSplash: () -> Unit,
     onLogout: () -> Unit = {},
-    operatorName: String = "Baş Mühendis"
+    operatorName: String = "Baş Mühendis",
+    sharedSimulationViewModel: ScanSimulationViewModel = viewModel()
 ) {
-    // Current Active Tab
-    var activeTab by remember { mutableStateOf("3d") } // 3d, 2d, live, plan
+    // Current Active Tab ("dashboard" = Primary Grid Dashboard)
+    var activeTab by rememberSaveable { mutableStateOf("dashboard") }
 
-    // BackHandler: if not on 3d home tab, return to 3d tab
-    BackHandler(enabled = activeTab != "3d") {
-        activeTab = "3d"
+    // BackHandler: if not on primary dashboard tab, return to dashboard
+    BackHandler(enabled = activeTab != "dashboard") {
+        activeTab = "dashboard"
     }
 
     val context = LocalContext.current
@@ -281,30 +286,38 @@ fun LeleSoftwareApp(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.clickable { onShowSplash() }
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.logo_lele_software),
-                            contentDescription = "LELE SOFTWARE Logo",
-                            contentScale = ContentScale.Fit,
+                        Box(
                             modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, Color(0xFFF59E0B), RoundedCornerShape(8.dp))
-                        )
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFF090F1D))
+                                .border(1.dp, Color(0xFFE2C799).copy(alpha = 0.65f), RoundedCornerShape(10.dp))
+                                .padding(3.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Image(
+                                painter = painterResource(id = R.drawable.logo_lele_software),
+                                contentDescription = "LELE SOFTWARE Logo",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     "LELE SOFTWARE",
                                     color = Color.White,
-                                    fontWeight = FontWeight.ExtraBold,
+                                    fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
-                                    letterSpacing = 1.sp
+                                    letterSpacing = 0.8.sp,
+                                    maxLines = 1
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
-                                    color = Color(0xFFF59E0B).copy(alpha = 0.2f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B))
+                                    color = Color(0xFFF59E0B).copy(alpha = 0.16f),
+                                    border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.7f))
                                 ) {
                                     Text(
                                         "PRO",
@@ -316,31 +329,20 @@ fun LeleSoftwareApp(
                                 }
                             }
                             Text(
-                                "Yazılım Mühendisliği • 3D/2D Yeraltı Görüntüleme",
+                                text = if (activeTab == "dashboard") "Canlı Jeofizik Saha Paneli" else "3D/2D Jeofizik Analiz",
                                 color = Color(0xFF38BDF8),
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.Medium
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
                             )
                         }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF0F172A),
+                    containerColor = Color(0xFF0B1221),
                     titleContentColor = Color.White
                 ),
                 actions = {
-                    // DSP Z-Score Mineral & IMU Filter Button
-                    IconButton(
-                        onClick = { isDspFilterOpen = true },
-                        modifier = Modifier.testTag("dsp_filter_button")
-                    ) {
-                        Icon(
-                            Icons.Default.FilterAlt,
-                            contentDescription = "DSP Z-Score & IMU Filtresi",
-                            tint = Color(0xFFF59E0B)
-                        )
-                    }
-
                     // D3 Real-Time Soil Density & Anomaly Depth Chart Toggle Button
                     IconButton(
                         onClick = { isD3ChartOpen = !isD3ChartOpen },
@@ -348,8 +350,8 @@ fun LeleSoftwareApp(
                     ) {
                         Icon(
                             Icons.Default.Timeline,
-                            contentDescription = "D3 Toprak Yoğunluğu & Derinlik Grafiği",
-                            tint = if (isD3ChartOpen) Color(0xFF00E5FF) else Color(0xFF94A3B8)
+                            contentDescription = "Toprak Yoğunluğu & Derinlik Grafiği",
+                            tint = if (isD3ChartOpen) Color(0xFF22D3EE) else Color(0xFF94A3B8)
                         )
                     }
 
@@ -385,31 +387,23 @@ fun LeleSoftwareApp(
                         }
                     }
 
-                    // Earth Magnetic Survey Compass Button
-                    IconButton(
-                        onClick = { isCompassOpen = true },
-                        modifier = Modifier.testTag("compass_button")
-                    ) {
-                        Icon(Icons.Default.Explore, contentDescription = "Manyetik Pusula", tint = Color(0xFF10B981))
-                    }
-
-                    // Presets Dropdown
+                    // Presets & Tools Dropdown
                     Box {
                         IconButton(
                             onClick = { isPresetsMenuOpen = true },
                             modifier = Modifier.testTag("preset_menu_button")
                         ) {
-                            Icon(Icons.Default.GridView, contentDescription = "Saha Preseti Seç", tint = Color(0xFFF59E0B))
+                            Icon(Icons.Default.GridView, contentDescription = "Tarama ve Araçlar", tint = Color(0xFFF59E0B))
                         }
 
                         DropdownMenu(
                             expanded = isPresetsMenuOpen,
                             onDismissRequest = { isPresetsMenuOpen = false },
-                            modifier = Modifier.background(Color(0xFF0F172A))
+                            modifier = Modifier.background(Color(0xFF0B1221))
                         ) {
                             if (beyazCiflikGrid != null) {
                                 DropdownMenuItem(
-                                    text = { Text("Beyaz Çiftlik (CSV • 48×11)", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold) },
+                                    text = { Text("Beyaz Çiftlik (CSV • 48×11)", color = Color(0xFF22D3EE), fontWeight = FontWeight.Bold) },
                                     onClick = {
                                         loadPreset("csv_beyaz_ciflik")
                                         isPresetsMenuOpen = false
@@ -435,7 +429,7 @@ fun LeleSoftwareApp(
                                     csvPickerLauncher.launch(arrayOf("text/csv", "text/comma-separated-values", "text/plain", "*/*"))
                                 }
                             )
-                            HorizontalDivider(color = Color(0xFF1E293B))
+                            HorizontalDivider(color = Color(0xFF1F2D46))
                             DropdownMenuItem(
                                 text = { Text("Lahit & Mezar Odası", color = Color.White) },
                                 onClick = {
@@ -457,32 +451,48 @@ fun LeleSoftwareApp(
                                     isPresetsMenuOpen = false
                                 }
                             )
+                            HorizontalDivider(color = Color(0xFF1F2D46))
+                            DropdownMenuItem(
+                                text = { Text("DSP Z-Score Mineral Filtresi", color = Color(0xFFF59E0B)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.FilterAlt, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
+                                },
+                                onClick = {
+                                    isPresetsMenuOpen = false
+                                    isDspFilterOpen = true
+                                },
+                                modifier = Modifier.testTag("dsp_filter_button")
+                            )
                             DropdownMenuItem(
                                 text = { Text("Manyetik Hat Pusulası", color = Color(0xFF10B981)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Explore, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(18.dp))
+                                },
                                 onClick = {
                                     isPresetsMenuOpen = false
                                     isCompassOpen = true
-                                }
+                                },
+                                modifier = Modifier.testTag("compass_button")
                             )
                             DropdownMenuItem(
-                                text = { Text("Çoklu Platform (Android • iOS • Windows)", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold) },
+                                text = { Text("Çoklu Platform Mimarisi", color = Color(0xFF22D3EE), fontWeight = FontWeight.Bold) },
                                 onClick = {
                                     isPresetsMenuOpen = false
                                     activeTab = "plan"
                                 }
                             )
                             DropdownMenuItem(
-                                text = { Text("LELE SOFTWARE Tanıtım & Açılış", color = Color(0xFF38BDF8)) },
+                                text = { Text("Açılış Ekranını Göster", color = Color(0xFF38BDF8)) },
                                 onClick = {
                                     isPresetsMenuOpen = false
                                     onShowSplash()
                                 }
                             )
-                            HorizontalDivider(color = Color(0xFF1E293B))
+                            HorizontalDivider(color = Color(0xFF1F2D46))
                             DropdownMenuItem(
                                 text = {
                                     Column {
-                                        Text("Aktif Operatör: $operatorName", color = Color(0xFF00E5FF), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text("Operatör: $operatorName", color = Color(0xFF22D3EE), fontWeight = FontWeight.Bold, fontSize = 12.sp)
                                         Text("Oturumu Kapat", color = Color(0xFFFCA5A5), fontSize = 13.sp)
                                     }
                                 },
@@ -501,7 +511,10 @@ fun LeleSoftwareApp(
                     // Analysis Report Modal
                     IconButton(
                         onClick = {
-                            if (currentGrid.isCsvImport) {
+                            if (activeTab == "dashboard") {
+                                selectScanGrid(sharedSimulationViewModel.buildCompletedGrid())
+                                isAnalysisOpen = true
+                            } else if (currentGrid.isCsvImport) {
                                 isCsvDeepAnalysisOpen = true
                             } else {
                                 isAnalysisOpen = true
@@ -509,83 +522,90 @@ fun LeleSoftwareApp(
                         },
                         modifier = Modifier.testTag("analysis_button")
                     ) {
-                        Icon(Icons.Default.Assessment, contentDescription = "Rapor", tint = Color(0xFF38BDF8))
-                    }
-
-                    // Operator Account / Logout Button
-                    IconButton(
-                        onClick = { onLogout() },
-                        modifier = Modifier.testTag("account_logout_button")
-                    ) {
-                        Icon(
-                            Icons.Default.AccountCircle,
-                            contentDescription = "Kullanıcı: $operatorName (Çıkış yap)",
-                            tint = Color(0xFF00E5FF)
-                        )
+                        Icon(Icons.Default.Assessment, contentDescription = "Analiz Raporu", tint = Color(0xFF38BDF8))
                     }
                 }
             )
         },
         bottomBar = {
             NavigationBar(
-                containerColor = Color(0xFF0F172A),
+                containerColor = Color(0xFF0B1221),
                 contentColor = Color.White,
                 modifier = Modifier.testTag("main_navigation_bar")
             ) {
                 NavigationBarItem(
-                    selected = activeTab == "3d",
-                    onClick = { activeTab = "3d" },
-                    icon = { Icon(Icons.Default.ViewInAr, contentDescription = null) },
-                    label = { Text("3D Görünüm", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    selected = activeTab == "dashboard",
+                    onClick = { activeTab = "dashboard" },
+                    icon = { Icon(Icons.Default.GridOn, contentDescription = "Saha Paneli") },
+                    label = { Text("Panel", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFFF59E0B),
                         selectedTextColor = Color(0xFFF59E0B),
                         indicatorColor = Color(0x33F59E0B),
                         unselectedIconColor = Color(0xFF94A3B8),
                         unselectedTextColor = Color(0xFF94A3B8)
-                    )
+                    ),
+                    modifier = Modifier.testTag("nav_tab_dashboard")
+                )
+
+                NavigationBarItem(
+                    selected = activeTab == "3d",
+                    onClick = { activeTab = "3d" },
+                    icon = { Icon(Icons.Default.ViewInAr, contentDescription = "3D Sahne") },
+                    label = { Text("3D", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = Color(0xFFF59E0B),
+                        selectedTextColor = Color(0xFFF59E0B),
+                        indicatorColor = Color(0x33F59E0B),
+                        unselectedIconColor = Color(0xFF94A3B8),
+                        unselectedTextColor = Color(0xFF94A3B8)
+                    ),
+                    modifier = Modifier.testTag("nav_tab_3d")
                 )
 
                 NavigationBarItem(
                     selected = activeTab == "2d",
                     onClick = { activeTab = "2d" },
-                    icon = { Icon(Icons.Default.Layers, contentDescription = null) },
-                    label = { Text("2D & Kesit", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.Default.Layers, contentDescription = "2D Kesit") },
+                    label = { Text("2D", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFFF59E0B),
                         selectedTextColor = Color(0xFFF59E0B),
                         indicatorColor = Color(0x33F59E0B),
                         unselectedIconColor = Color(0xFF94A3B8),
                         unselectedTextColor = Color(0xFF94A3B8)
-                    )
+                    ),
+                    modifier = Modifier.testTag("nav_tab_2d")
                 )
 
                 NavigationBarItem(
                     selected = activeTab == "live",
                     onClick = { activeTab = "live" },
-                    icon = { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = null) },
-                    label = { Text("Canlı Tarama", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = "Canlı Prob") },
+                    label = { Text("Canlı", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFFF59E0B),
                         selectedTextColor = Color(0xFFF59E0B),
                         indicatorColor = Color(0x33F59E0B),
                         unselectedIconColor = Color(0xFF94A3B8),
                         unselectedTextColor = Color(0xFF94A3B8)
-                    )
+                    ),
+                    modifier = Modifier.testTag("nav_tab_live")
                 )
 
                 NavigationBarItem(
                     selected = activeTab == "plan",
                     onClick = { activeTab = "plan" },
-                    icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
-                    label = { Text("Mimari & Çoklu Platform", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
+                    icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = "Sistem") },
+                    label = { Text("Sistem", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Color(0xFFF59E0B),
                         selectedTextColor = Color(0xFFF59E0B),
                         indicatorColor = Color(0x33F59E0B),
                         unselectedIconColor = Color(0xFF94A3B8),
                         unselectedTextColor = Color(0xFF94A3B8)
-                    )
+                    ),
+                    modifier = Modifier.testTag("nav_tab_plan")
                 )
             }
         }
@@ -611,6 +631,37 @@ fun LeleSoftwareApp(
 
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (activeTab) {
+                    "dashboard" -> {
+                        GeophysicalDashboardScreen(
+                            simulationViewModel = sharedSimulationViewModel,
+                            onOpenIn3D = { liveGrid ->
+                                selectScanGrid(liveGrid)
+                                activeTab = "3d"
+                            },
+                            onOpenIn2D = { liveGrid ->
+                                selectScanGrid(liveGrid)
+                                activeTab = "2d"
+                            },
+                            onInspectAnomaly = { liveGrid, anom ->
+                                selectScanGrid(liveGrid)
+                                sheetAnomaly = anom
+                                sheetGridX = anom.gridX
+                                sheetGridY = anom.gridY
+                                isDetailSheetOpen = true
+                            },
+                            onSaveAnomaly = { liveGrid, anom ->
+                                coroutineScope.launch {
+                                    repository.saveAnomaly(
+                                        anomaly = anom,
+                                        scanId = liveGrid.id,
+                                        locationName = liveGrid.locationName
+                                    )
+                                    Toast.makeText(context, "${anom.title} kaydedildi", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
+                    }
+
                     "3d" -> {
                         Box(modifier = Modifier.fillMaxSize()) {
                             ThreeDimensionalVisualizer(
@@ -728,6 +779,7 @@ fun LeleSoftwareApp(
 
                     "live" -> {
                         LiveScannerScreen(
+                            viewModel = sharedSimulationViewModel,
                             onScanCompleted = { newGrid ->
                                 selectScanGrid(newGrid)
                                 activeTab = "3d"
@@ -756,6 +808,7 @@ fun LeleSoftwareApp(
             val match = anomalies.find { it.gridX == finding.peakGridX && it.gridY == finding.peakGridY }
             selectedAnomalyId = match?.id
         },
+        palette = palette,
         onSaveAllToDatabase = {
             coroutineScope.launch {
                 repository.saveAllAnomalies(
@@ -773,6 +826,7 @@ fun LeleSoftwareApp(
         onClose = { isAnalysisOpen = false },
         grid = currentGrid,
         anomalies = anomalies,
+        palette = if (activeTab == "dashboard") sharedSimulationViewModel.uiState.value.activePalette else palette,
         onSaveAllToDatabase = {
             coroutineScope.launch {
                 repository.saveAllAnomalies(

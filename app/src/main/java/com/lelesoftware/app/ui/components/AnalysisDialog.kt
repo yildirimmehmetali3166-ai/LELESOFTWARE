@@ -16,6 +16,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -35,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,8 +45,11 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.lelesoftware.app.model.DetectedAnomaly
 import androidx.compose.material.icons.filled.Storage
+import com.lelesoftware.app.model.PaletteType
 import com.lelesoftware.app.model.ScanGrid
 import com.lelesoftware.app.model.TargetClassification
+import com.lelesoftware.app.util.ExportFileFormat
+import com.lelesoftware.app.util.GridExportConfig
 import com.lelesoftware.app.util.ReportExporter
 import java.util.Locale
 
@@ -53,12 +59,14 @@ fun AnalysisDialog(
     onClose: () -> Unit,
     grid: ScanGrid,
     anomalies: List<DetectedAnomaly>,
+    palette: PaletteType = PaletteType.LELE_SPECTRUM,
     onSaveAllToDatabase: (() -> Unit)? = null
 ) {
     if (!isOpen) return
     val context = LocalContext.current
+    var exportDialogFormat by remember { mutableStateOf<ExportFileFormat?>(null) }
 
-    val totalArea = (grid.width * grid.stepDistanceMeters) * (grid.height * grid.stepDistanceMeters)
+    val totalArea = (grid.width * grid.stepDistanceMeters) * (grid.height * grid.stepYMeters)
     val maxDepth = anomalies.maxOfOrNull { it.depthMeters } ?: 0f
 
     val voidCount = anomalies.count { it.classification == TargetClassification.VOID }
@@ -86,10 +94,10 @@ fun AnalysisDialog(
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Jeofizik Saha Analiz Raporu",
                             color = Color.White,
@@ -115,7 +123,7 @@ fun AnalysisDialog(
                 ) {
                     MetricCard(
                         title = "Tarama Alanı",
-                        value = "${totalArea.toInt()} m²",
+                        value = String.format(Locale.US, "%.1f m²", totalArea),
                         subtitle = "${grid.width}x${grid.height} Nokta",
                         modifier = Modifier.weight(1f)
                     )
@@ -168,11 +176,12 @@ fun AnalysisDialog(
                         Column(modifier = Modifier.padding(12.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(a.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                Text(a.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
                                 Text(
-                                    "${a.signalStrength}%",
+                                    "%${a.signalStrength}",
                                     color = Color(a.classification.colorHex),
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 13.sp
@@ -182,7 +191,7 @@ fun AnalysisDialog(
                             Text(a.description, color = Color(0xFF94A3B8), fontSize = 11.sp)
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                "Koordinat: (${a.xMeters}m, ${a.yMeters}m) | Derinlik: ${String.format(Locale.US, "%.2f", a.depthMeters)}m [±${String.format(Locale.US, "%.2f", (a.maxDepthMeters - a.minDepthMeters) / 2f)}m] | FWHM: ${String.format(Locale.US, "%.2f", a.fwhmMeters)}m | Güven: %${a.depthConfidence}",
+                                "Koordinat: (${String.format(Locale.US, "%.1f", a.xMeters)}m, ${String.format(Locale.US, "%.1f", a.yMeters)}m) | Derinlik: ${String.format(Locale.US, "%.2f", a.depthMeters)}m [±${String.format(Locale.US, "%.2f", (a.maxDepthMeters - a.minDepthMeters) / 2f)}m] | FWHM: ${String.format(Locale.US, "%.2f", a.fwhmMeters)}m | Güven: %${a.depthConfidence}",
                                 color = Color(0xFFCBD5E1),
                                 fontSize = 10.sp
                             )
@@ -213,22 +222,55 @@ fun AnalysisDialog(
                     }
                 }
 
-                // Export Options Bar
+                // Visual Grid Report Exports (PDF & PNG)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
+                        onClick = { exportDialogFormat = ExportFileFormat.PDF },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("analysis_export_pdf_button"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color.Black, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("PDF Rapor", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+                    }
+
+                    OutlinedButton(
+                        onClick = { exportDialogFormat = ExportFileFormat.PNG },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .testTag("analysis_export_png_button"),
+                        shape = RoundedCornerShape(10.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
+                    ) {
+                        Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF10B981), modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("PNG Görsel", color = Color(0xFF10B981), fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+                    }
+                }
+
+                // Raw Data Export Options Bar
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedButton(
                         onClick = {
                             val csv = ReportExporter.generateCSV(grid, anomalies)
                             ReportExporter.shareReport(context, csv, "${grid.id}_saha_raporu.csv")
                         },
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF59E0B))
+                        modifier = Modifier.weight(1f).height(48.dp)
                     ) {
-                        Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Share, contentDescription = null, tint = Color(0xFFF59E0B), modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("CSV Paylaş", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("CSV Paylaş", color = Color(0xFFF59E0B), fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
                     }
 
                     OutlinedButton(
@@ -236,15 +278,26 @@ fun AnalysisDialog(
                             val json = ReportExporter.generateJSON(grid, anomalies)
                             ReportExporter.shareReport(context, json, "${grid.id}_veri_paketi.json")
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).height(48.dp)
                     ) {
                         Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("JSON Dışa Aktar", fontSize = 12.sp)
+                        Text("JSON Dışa Aktar", fontSize = 12.sp, maxLines = 1)
                     }
                 }
             }
         }
+    }
+
+    exportDialogFormat?.let { fmt ->
+        ScanExportDialog(
+            isOpen = true,
+            initialFormat = fmt,
+            grid = grid,
+            anomalies = anomalies,
+            config = GridExportConfig(palette = palette, smoothGrid = true),
+            onDismiss = { exportDialogFormat = null }
+        )
     }
 }
 

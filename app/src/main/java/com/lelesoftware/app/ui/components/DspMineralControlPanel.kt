@@ -136,25 +136,29 @@ fun DspMineralControlPanel(
             // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Icon(
                         Icons.Default.FilterAlt,
                         contentDescription = null,
                         tint = Color(0xFFF59E0B),
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                     Column {
                         Text(
                             text = "DSP Z-Score Mineral & IMU Filtresi",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 14.sp
                         )
                         Text(
-                            text = "Çift Fluxgate FGM + BNO085 9-Eksen IMU Fusion",
+                            text = "Çift Fluxgate FGM + BNO085 9-Eksen IMU Füzyon",
                             color = Color(0xFF94A3B8),
                             fontSize = 11.sp
                         )
@@ -167,11 +171,12 @@ fun DspMineralControlPanel(
                     border = androidx.compose.foundation.BorderStroke(1.dp, if (dspOutput.isAnomaly) Color(0xFF10B981) else Color(0xFFF59E0B))
                 ) {
                     Text(
-                        text = if (dspOutput.isAnomaly) "ANOMALİ TESPİT" else "MİNERAL BASTIRILDI",
+                        text = if (dspOutput.isAnomaly) "ANOMALİ" else "FİLTRELİ",
                         color = if (dspOutput.isAnomaly) Color(0xFF10B981) else Color(0xFFF59E0B),
                         fontWeight = FontWeight.Bold,
                         fontSize = 10.sp,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                     )
                 }
             }
@@ -182,14 +187,15 @@ fun DspMineralControlPanel(
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Z-Score Mineral Basılama Eşiği (Z_thresh):",
+                        text = "Z-Score Mineral Bastırma Eşiği:",
                         color = Color(0xFFE2E8F0),
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
                     )
                     Text(
                         text = String.format(Locale.US, "%.1f σ", zThreshold),
@@ -232,10 +238,10 @@ fun DspMineralControlPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column {
-                        Text("Ham ΔnT", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Ham ΔnT", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
                         Text(
                             text = String.format(Locale.US, "%.1f nT", rawDeltaNt),
                             color = Color.White,
@@ -243,8 +249,8 @@ fun DspMineralControlPanel(
                             fontSize = 13.sp
                         )
                     }
-                    Column {
-                        Text("Zemin Baseline (μ)", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Baseline (μ)", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
                         Text(
                             text = String.format(Locale.US, "%.1f nT", dspOutput.baselineMean),
                             color = Color(0xFF38BDF8),
@@ -252,8 +258,8 @@ fun DspMineralControlPanel(
                             fontSize = 13.sp
                         )
                     }
-                    Column {
-                        Text("Z-Score Değeri", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Z-Score", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
                         Text(
                             text = String.format(Locale.US, "%.2f", dspOutput.zScore),
                             color = if (dspOutput.isAnomaly) Color(0xFF10B981) else Color(0xFFF59E0B),
@@ -261,8 +267,8 @@ fun DspMineralControlPanel(
                             fontSize = 13.sp
                         )
                     }
-                    Column {
-                        Text("Filtrelenmiş Çıktı", color = Color(0xFF94A3B8), fontSize = 10.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Filtreli Çıktı", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
                         Text(
                             text = String.format(Locale.US, "%.1f nT", dspOutput.filteredDelta),
                             color = Color(0xFF00E5FF),
@@ -277,10 +283,14 @@ fun DspMineralControlPanel(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Icon(
                             Icons.Default.CompassCalibration,
                             contentDescription = null,

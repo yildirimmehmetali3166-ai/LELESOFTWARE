@@ -374,7 +374,7 @@ fun ThreeDScanViewer(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
-                    text = "Kamera: Yaw ${yawDeg.toInt()}° | Pitch ${pitchDeg.toInt()}° | Preseti: ${cameraPreset.label} (60 FPS Caching)",
+                    text = "Kamera: Yaw ${yawDeg.toInt()}° • Pitch ${pitchDeg.toInt()}° • ${cameraPreset.label}",
                     color = Color(0xFF94A3B8),
                     fontSize = 11.sp
                 )
@@ -401,7 +401,7 @@ fun ThreeDScanViewer(
                                     modifier = Modifier.size(8.dp)
                                 ) {}
                                 Text(
-                                    text = "${anom.classification.label} (${String.format(Locale.US, "%.2fm", anom.depthMeters)}) • Inversion & Hacim Analizi",
+                                    text = "${anom.classification.label} (${String.format(Locale.US, "%.2fm", anom.depthMeters)}) • İnversiyon & Hacim Analizi",
                                     color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp

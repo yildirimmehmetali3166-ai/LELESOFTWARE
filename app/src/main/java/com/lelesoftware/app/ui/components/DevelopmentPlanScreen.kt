@@ -183,10 +183,14 @@ private fun MultiplatformSection(onCopy: (String, String) -> Unit) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Icon(Icons.Default.Devices, contentDescription = null, tint = Color(0xFF00E5FF), modifier = Modifier.size(24.dp))
                         Text(
                             text = "KOTLIN & COMPOSE MULTIPLATFORM (KMP)",
@@ -202,9 +206,9 @@ private fun MultiplatformSection(onCopy: (String, String) -> Unit) {
                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF10B981))
                     ) {
                         Text(
-                            text = "3 Platform: %100 Uyum",
+                            text = "3 Platform Uyumlu",
                             color = Color(0xFF10B981),
-                            fontSize = 11.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                         )
@@ -213,7 +217,7 @@ private fun MultiplatformSection(onCopy: (String, String) -> Unit) {
 
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    text = "LELE SOFTWARE tek bir ortak kod tabanından (Single Codebase) derlenerek Android, iOS (iPhone & iPad) ve Windows 10/11 Masaüstü PC ortamlarında yerel (native) performansla çalışacak şekilde mimarilendirilmiştir.",
+                    text = "LELE SOFTWARE tek bir ortak kod tabanından (Single Codebase) derlenerek Android, iOS (iPhone & iPad) ve Windows 10/11 Masaüstü PC ortamlarında yerel (native) performansla çalışacak şekilde tasarlanmıştır.",
                     color = Color.White,
                     fontSize = 12.sp,
                     lineHeight = 18.sp
@@ -348,10 +352,14 @@ private fun PlatformTargetCard(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
                     Text(platformName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
@@ -398,7 +406,7 @@ private fun HardwareSection() {
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
@@ -406,7 +414,8 @@ private fun HardwareSection() {
                         color = Color(0xFF38BDF8),
                         fontWeight = FontWeight.Bold,
                         fontSize = 12.sp,
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.weight(1f)
                     )
                     Surface(
                         shape = RoundedCornerShape(6.dp),
@@ -535,10 +544,16 @@ private fun HardwareComponentCard(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(category, color = Color(0xFFF59E0B), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    category,
+                    color = Color(0xFFF59E0B),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
                 Surface(
                     shape = RoundedCornerShape(6.dp),
                     color = tagColor.copy(alpha = 0.2f),
@@ -563,7 +578,7 @@ private fun RoadmapSection() {
         PlanMilestoneCard(
             step = "Faz 1",
             title = "Çift Sensörlü Fluxgate Gradiometre Donanımı",
-            description = "0.1 nT hassasiyetli FGM sensörleri, STM32F4 mikroişlemci, 24-bit ADC ve Nordic nRF52840 BLE modülü ile 50 Hz gerçek zamanlı manyetik gradyan veri toplama çubuğu.",
+            description = "0.1 nT hassasiyetli FGM sensörleri, STM32F4 mikroişlemci, 24-bit ADC ve Nordic nRF52840 BLE modülü ile 50 Hz gerçek zamanlı manyetik gradyan veri toplama probu.",
             status = "Tamamlandı / Entegre",
             statusColor = Color(0xFF10B981)
         )
@@ -584,7 +599,7 @@ private fun RoadmapSection() {
         PlanMilestoneCard(
             step = "Faz 4",
             title = "RTK GNSS Entegrasyonu & 3D Nokta Bulutu Haritalandırma",
-            description = "Santimetre hassasiyetinde santimetrik RTK GPS koordinatları ile arazi yüzey haritası üzerine 3D anomali katmanlarının bindirilmesi.",
+            description = "Santimetre hassasiyetinde RTK GNSS koordinatları ile arazi yüzey haritası üzerine 3D anomali katmanlarının bindirilmesi.",
             status = "Planlandı",
             statusColor = Color(0xFF94A3B8)
         )
@@ -719,10 +734,14 @@ private fun PlanMilestoneCard(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Surface(
                         shape = RoundedCornerShape(6.dp),
                         color = Color(0xFFF59E0B).copy(alpha = 0.2f)
@@ -754,10 +773,10 @@ private fun CodeSnippetCard(
         Column(modifier = Modifier.padding(14.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
                 IconButton(onClick = onCopy) {
                     Icon(Icons.Default.ContentCopy, contentDescription = "Kopyala", tint = Color(0xFFF59E0B), modifier = Modifier.size(18.dp))
                 }

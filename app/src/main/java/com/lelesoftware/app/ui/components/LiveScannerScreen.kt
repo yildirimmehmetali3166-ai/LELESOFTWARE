@@ -45,6 +45,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,6 +55,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lelesoftware.app.model.PaletteType
 import com.lelesoftware.app.model.ScanGrid
 import com.lelesoftware.app.util.ColorScales
+import java.util.Locale
 
 /**
  * LiveScannerScreen
@@ -72,6 +75,7 @@ fun LiveScannerScreen(
     val gridWidth = uiState.gridWidth
     val gridHeight = uiState.gridHeight
     val deviceStatus = uiState.deviceStatus
+    val walkingZoomState = rememberGridZoomPanState(gridWidth, gridHeight)
 
     Column(
         modifier = modifier
@@ -91,14 +95,18 @@ fun LiveScannerScreen(
             Column(modifier = Modifier.padding(14.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Icon(Icons.Default.Bluetooth, contentDescription = null, tint = Color(0xFF38BDF8))
                         Column {
                             Text(deviceStatus.deviceName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text("Bağlı (BLE 50 Hz - Dispatchers.Default)", color = Color(0xFF10B981), fontSize = 12.sp)
+                            Text("Bağlı • BLE 5.2 (50 Hz Canlı Akış)", color = Color(0xFF10B981), fontSize = 11.sp)
                         }
                     }
 
@@ -135,31 +143,31 @@ fun LiveScannerScreen(
                 // Dual Fluxgate Sensor Live Gauges
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column {
-                        Text("Sensör A (Üst)", color = Color(0xFF94A3B8), fontSize = 11.sp)
-                        Text("${deviceStatus.currentSensorA} nT", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Sensör A (Üst)", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
+                        Text("${deviceStatus.currentSensorA} nT", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
-                    Column {
-                        Text("Sensör B (Alt)", color = Color(0xFF94A3B8), fontSize = 11.sp)
-                        Text("${deviceStatus.currentSensorB} nT", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Sensör B (Alt)", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
+                        Text("${deviceStatus.currentSensorB} nT", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
-                    Column {
-                        Text("Gradyan Farkı (Δ)", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Gradyan (Δ)", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
                         Text(
                             "${deviceStatus.gradientDelta} nT",
                             color = if (deviceStatus.gradientDelta > 0) Color(0xFFF59E0B) else Color(0xFF38BDF8),
                             fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp
                         )
                     }
-                    Column {
-                        Text("Eğim (P/R)", color = Color(0xFF94A3B8), fontSize = 11.sp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Eğim (P/R)", color = Color(0xFF94A3B8), fontSize = 10.sp, maxLines = 1)
                         Text(
                             "${deviceStatus.currentPitch}° / ${deviceStatus.currentRoll}°",
                             color = Color(0xFFCBD5E1),
-                            fontSize = 13.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -209,16 +217,20 @@ fun LiveScannerScreen(
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Icon(Icons.AutoMirrored.Filled.DirectionsWalk, contentDescription = null, tint = Color(0xFFF59E0B))
                         Text(
                             text = "Adım Adım Saha Taraması",
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
+                            fontSize = 14.sp
                         )
                     }
 
@@ -258,9 +270,16 @@ fun LiveScannerScreen(
                     Text("Konum: (${uiState.currentStepX}, ${uiState.currentStepY.coerceAtMost(gridHeight - 1)})", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Grid Visualization Canvas
+                GridZoomToolbar(
+                    state = walkingZoomState,
+                    tagPrefix = "live_walking_grid"
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Grid Visualization Canvas (Pinch-to-Zoom, Pan, Tap-to-Select)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -268,8 +287,29 @@ fun LiveScannerScreen(
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFF030712))
                         .border(1.dp, Color(0xFF334155), RoundedCornerShape(12.dp))
+                        .geophysicalGridGestures(
+                            state = walkingZoomState,
+                            key1 = gridWidth to gridHeight
+                        ) { tapPos, viewportSize ->
+                            val (gx, gy) = walkingZoomState.viewportToGridCell(
+                                tapPos = tapPos,
+                                size = viewportSize,
+                                gridWidth = gridWidth,
+                                gridHeight = gridHeight
+                            )
+                            viewModel.selectCell(gx, gy)
+                        }
                 ) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
+                    Canvas(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = walkingZoomState.scale
+                                scaleY = walkingZoomState.scale
+                                translationX = walkingZoomState.offset.x
+                                translationY = walkingZoomState.offset.y
+                            }
+                    ) {
                         val renderW = size.width
                         val renderH = size.height
                         val cellW = renderW / gridWidth
@@ -303,7 +343,40 @@ fun LiveScannerScreen(
                                 }
                             }
                         }
+
+                        uiState.selectedCell?.let { (sx, sy) ->
+                            val safeX = sx.coerceIn(0, gridWidth - 1)
+                            val safeY = sy.coerceIn(0, gridHeight - 1)
+                            val invScale = 1f / walkingZoomState.scale.coerceAtLeast(1f)
+                            drawRect(
+                                color = Color.White,
+                                topLeft = Offset(safeX * cellW, safeY * cellH),
+                                size = Size(cellW, cellH),
+                                style = Stroke(width = (2.5f * invScale).coerceAtLeast(1f))
+                            )
+                        }
                     }
+                }
+
+                uiState.selectedCell?.let { (sx, sy) ->
+                    val safeX = sx.coerceIn(0, gridWidth - 1)
+                    val safeY = sy.coerceIn(0, gridHeight - 1)
+                    val pt = uiState.points.getOrNull(safeY)?.getOrNull(safeX)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = if (pt != null && pt.timestamp > 0L) {
+                            String.format(
+                                Locale.US,
+                                "Seçili Hücre (%d, %d): %+.1f%% • %d nT • %s",
+                                safeX, safeY, pt.filteredSignal, pt.rawSignal, pt.classification.label
+                            )
+                        } else {
+                            "Seçili Hücre ($safeX, $safeY): Henüz taranmadı"
+                        },
+                        color = Color(0xFF22D3EE),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
